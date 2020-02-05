@@ -43,6 +43,16 @@ var fbo = {
 	tex: null,
 	rbo: null
 };
+var Gbuffer = {
+	id: null,
+	posTex: null,
+	UVtex: null,
+	TBNtex: null,
+	normalTex: null,
+	eyeTex: null,
+	lightTex: null,
+	depthTex: null
+};
 var winModel = {
 	vao: null
 };
@@ -462,6 +472,95 @@ function initFBO() {
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 }
 
+function genGbufferTex(fbo, target) {
+	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+
+	let tex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, tex);
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texStorage2D(
+		gl.TEXTURE_2D,
+		1,
+		gl.RGBA16F,
+		gl.drawingBufferWidth,
+		gl.drawingBufferHeight
+	);
+	gl.framebufferTexture2D(
+		gl.FRAMEBUFFER,
+		gl.COLOR_ATTACHMENT0 + target,
+		gl.TEXTURE_2D,
+		Gbuffer.posTex,
+		0
+	);
+
+	return tex;
+}
+
+function initGbuffer() {
+	// delete old
+
+	if (Gbuffer.id) gl.deleteFramebuffer(Gbuffer.id);
+	if (Gbuffer.posTex) gl.deleteTexture(Gbuffer.posTex);
+	if (Gbuffer.UVtex) gl.deleteTexture(Gbuffer.UVtex);
+	if (Gbuffer.eyeTex) gl.deleteTexture(Gbuffer.eyeTex);
+	if (Gbuffer.TBNtex) gl.deleteTexture(Gbuffer.TBNtex);
+	if (Gbuffer.lightTex) gl.deleteTexture(Gbuffer.lightTex);
+	if (Gbuffer.normalTex) gl.deleteTexture(Gbuffer.normalTex);
+	if (Gbuffer.depthTex) gl.deleteTexture(Gbuffer.depthTex);
+
+	// FBO
+	Gbuffer.id = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
+
+	// color attachments
+	gl.activeTexture(gl.TEXTURE0);
+
+	Gbuffer.posTex = genGbufferTex(Gbuffer.id, 0);
+	Gbuffer.UVTex = genGbufferTex(Gbuffer.id, 1);
+	Gbuffer.eyeTex = genGbufferTex(Gbuffer.id, 2);
+	Gbuffer.TBNTex = genGbufferTex(Gbuffer.id, 3);
+	Gbuffer.lightTex = genGbufferTex(Gbuffer.id, 4);
+	Gbuffer.normalTex = genGbufferTex(Gbuffer.id, 5);
+
+	gl.drawBuffers([
+		gl.COLOR_ATTACHMENT0,
+		gl.COLOR_ATTACHMENT1,
+		gl.COLOR_ATTACHMENT2,
+		gl.COLOR_ATTACHMENT3,
+		gl.COLOR_ATTACHMENT4,
+		gl.COLOR_ATTACHMENT5
+	]);
+
+	// depth attachment
+	Gbuffer.depthTex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, Gbuffer.depthTex);
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texStorage2D(
+		gl.TEXTURE_2D,
+		1,
+		gl.DEPTH_COMPONENT16,
+		gl.drawingBufferWidth,
+		gl.drawingBufferHeight
+	);
+	gl.framebufferTexture2D(
+		gl.FRAMEBUFFER,
+		gl.DEPTH_ATTACHMENT,
+		gl.TEXTURE_2D,
+		Gbuffer.depthTex,
+		0
+	);
+
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
 async function initModels() {
 	// model
 	let ret = await loadObj("./asset/ladybug.obj");
@@ -609,6 +708,7 @@ window.onload = () => {
 	initVar();
 	initProgram();
 	initFBO();
+	initGbuffer();
 	initModels().then(() => {
 		// rendering loop
 		window.requestAnimationFrame(animate);
