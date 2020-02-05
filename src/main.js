@@ -27,7 +27,8 @@ var uniform = {
 	light: null,
 	co: null,
 	nm: null,
-	use: null
+	use: null,
+	windowTex: null
 };
 var model = {
 	vao: null,
@@ -41,6 +42,9 @@ var fbo = {
 	id: null,
 	tex: null,
 	rbo: null
+};
+var winModel = {
+	vao: null
 };
 
 // -------- TOOLS ---------- //
@@ -384,6 +388,11 @@ function initProgram() {
 	gl.uniform1i(uniform.nm, 1);
 	gl.uniform3fv(uniform.eye, glm.vec3.fromValues(0.0, 2.5, 0.0));
 	gl.uniform1i(uniform.use, flag.use);
+
+	//window program
+	uniform.windowTex = gl.getUniformLocation(program.window, "tex");
+	gl.useProgram(program.window);
+	gl.uniform1i(uniform.windowTex, 0);
 }
 
 function initFBO() {
@@ -422,7 +431,7 @@ function initFBO() {
 	fbo.rbo = gl.createRenderbuffer(); // Create a renderbuffer object
 	if (!fbo.rbo) {
 		console.log("Failed to create renderbuffer object");
-		return error();
+		return;
 	}
 	gl.bindRenderbuffer(gl.RENDERBUFFER, fbo.rbo); // Bind the object to target
 	gl.renderbufferStorage(
@@ -453,11 +462,10 @@ function initFBO() {
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 }
 
-async function loadAsset() {
-	// obj
+async function initModels() {
+	// model
 	let ret = await loadObj("./asset/ladybug.obj");
 
-	// texture
 	let promises = [];
 	promises.push(loadImage("./asset/ladybug_co.png"));
 	promises.push(loadImage("./asset/ladybug_nm.png"));
@@ -481,6 +489,42 @@ async function loadAsset() {
 	}
 
 	results.length = 0;
+
+	// windowModel
+	winModel.vao = gl.createVertexArray();
+	gl.bindVertexArray(winModel.vao);
+
+	const screen_pos_texcoord = new Float32Array([
+		1.0,
+		-1.0,
+		1.0,
+		0.0,
+
+		-1.0,
+		-1.0,
+		0.0,
+		0.0,
+
+		-1.0,
+		1.0,
+		0.0,
+		1.0,
+
+		1.0,
+		1.0,
+		1.0,
+		1.0
+	]);
+	const pos = new Float32Array([0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5]);
+	let vbo = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+	gl.bufferData(gl.ARRAY_BUFFER, screen_pos_texcoord, gl.STATIC_DRAW);
+	gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 4 * 4, 0);
+	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
+	gl.enableVertexAttribArray(0);
+	gl.enableVertexAttribArray(1);
+
+	gl.bindVertexArray(null);
 }
 
 // -------- END INIT ------- //
@@ -501,9 +545,9 @@ function animate(time) {
 }
 
 function render(delta, time) {
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
 	gl.useProgram(program.program);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	// set uniform
 	let mvp = glm.mat4.create();
@@ -512,6 +556,7 @@ function render(delta, time) {
 	gl.uniformMatrix4fv(uniform.mvp, false, mvp);
 	gl.uniformMatrix4fv(uniform.m, false, matrix.m);
 
+	// draw to fbo
 	let light = glm.vec3.fromValues(
 		40.0 * Math.sin(time * 0.001),
 		30.0 + 20.0 * Math.cos(time * 0.001),
@@ -519,15 +564,26 @@ function render(delta, time) {
 	);
 	gl.uniform3fv(uniform.light, light);
 
-	// set tex
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, model.tex[0]);
 	gl.activeTexture(gl.TEXTURE1);
 	gl.bindTexture(gl.TEXTURE_2D, model.tex[1]);
 
-	// drawing command
 	gl.bindVertexArray(model.vao);
 	gl.drawElements(gl.TRIANGLES, model.ctr, gl.UNSIGNED_INT, 0);
+
+	// draw to screen
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	gl.clearColor(1.0, 0.0, 0.0, 1.0);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+	gl.useProgram(program.window);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, fbo.tex);
+	gl.uniform1i(uniform.windowTex, 0);
+
+	gl.bindVertexArray(winModel.vao);
+	gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 }
 
 window.onresize = () => {
@@ -553,7 +609,7 @@ window.onload = () => {
 	initVar();
 	initProgram();
 	initFBO();
-	loadAsset().then(() => {
+	initModels().then(() => {
 		// rendering loop
 		window.requestAnimationFrame(animate);
 	});
