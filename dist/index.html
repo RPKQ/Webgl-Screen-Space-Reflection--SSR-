@@ -96,6 +96,34 @@
 			}
 		</script>
 
+		<script type="x-shader/x-vertex" id="windowV">
+			#version 300 es
+
+			layout(location = 0) in vec3 iPosition;
+			layout(location = 1) in vec2 iTexcoord;
+
+			out vec2 vTexcoord;
+
+			void main() {
+				gl_Position = vec4(iPosition, 1.0);
+				vTexcoord = iTexcoord;
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="windowF">
+			#version 300 es
+			precision highp float;
+
+			in vec2 vTexcoord;
+			out vec4 fFragColor;
+
+			uniform sampler2D tex;
+
+			void main() {
+				vec3 color = texture(tex, vTexcoord).rgb;
+				fFragColor = vec4(color, 1.0);
+			}
+		</script>
+
 		<script type="text/javascript" src="vendor.bundle.js"></script>
 		<script type="text/javascript" src="main.bundle.js"></script>
 	</body>

@@ -7,8 +7,12 @@ var gl = window.WebGL2RenderingContext.prototype; // specify type for code snipp
 var stats = null;
 var gui = null;
 
-var global = {
+var program = {
 	program: null,
+	window: null
+};
+
+var global = {
 	start: null
 };
 var matrix = {
@@ -32,6 +36,11 @@ var model = {
 };
 var flag = {
 	use: false
+};
+var fbo = {
+	id: null,
+	tex: null,
+	rbo: null
 };
 
 // -------- TOOLS ---------- //
@@ -302,6 +311,8 @@ function createShader(vsID, fsID) {
 
 // ------- END TOOLS -------- //
 
+// --------- INIT ----------- //
+
 function initWebGL() {
 	let canvas = document.createElement("canvas");
 	canvas.width = window.innerWidth;
@@ -335,7 +346,7 @@ function initWebGL() {
 	nmFolder.open();
 }
 
-function myInit() {
+function initVar() {
 	// matrix
 	matrix.m = glm.mat4.create();
 	matrix.v = glm.mat4.create();
@@ -353,23 +364,93 @@ function myInit() {
 		0.1,
 		100.0
 	);
+}
 
+function initProgram() {
 	// shader
-	global.program = createShader("vertex", "fragment");
+	program.program = createShader("vertex", "fragment");
+	program.window = createShader("windowV", "windowF");
 
-	uniform.mvp = gl.getUniformLocation(global.program, "uMVP");
-	uniform.co = gl.getUniformLocation(global.program, "uCO");
-	uniform.nm = gl.getUniformLocation(global.program, "uNM");
-	uniform.m = gl.getUniformLocation(global.program, "uM");
-	uniform.eye = gl.getUniformLocation(global.program, "uEye");
-	uniform.light = gl.getUniformLocation(global.program, "uLight");
-	uniform.use = gl.getUniformLocation(global.program, "uUse");
+	uniform.mvp = gl.getUniformLocation(program.program, "uMVP");
+	uniform.co = gl.getUniformLocation(program.program, "uCO");
+	uniform.nm = gl.getUniformLocation(program.program, "uNM");
+	uniform.m = gl.getUniformLocation(program.program, "uM");
+	uniform.eye = gl.getUniformLocation(program.program, "uEye");
+	uniform.light = gl.getUniformLocation(program.program, "uLight");
+	uniform.use = gl.getUniformLocation(program.program, "uUse");
 
-	gl.useProgram(global.program);
+	gl.useProgram(program.program);
 	gl.uniform1i(uniform.co, 0);
 	gl.uniform1i(uniform.nm, 1);
 	gl.uniform3fv(uniform.eye, glm.vec3.fromValues(0.0, 2.5, 0.0));
 	gl.uniform1i(uniform.use, flag.use);
+}
+
+function initFBO() {
+	if (fbo.id) gl.deleteFramebuffer(fbo.id);
+	if (fbo.tex) gl.deleteTexture(fbo.tex);
+	if (fbo.rbo) gl.deleteRenderbuffer(fbo.rbo);
+
+	// Create a frame buffer object (FBO)
+	fbo.id = gl.createFramebuffer();
+	if (!fbo.id) {
+		console.log("Failed to create frame buffer object");
+		return;
+	}
+
+	// Create a texture object and set its size and parameters
+	fbo.tex = gl.createTexture(); // Create a texture object
+	if (!fbo.tex) {
+		console.log("Failed to create texture object");
+		return;
+	}
+	gl.bindTexture(gl.TEXTURE_2D, fbo.tex); // Bind the object to target
+	gl.texImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		window.innerWidth,
+		window.innerHeight,
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		null
+	);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+	// Create a renderbuffer object and Set its size and parameters
+	fbo.rbo = gl.createRenderbuffer(); // Create a renderbuffer object
+	if (!fbo.rbo) {
+		console.log("Failed to create renderbuffer object");
+		return error();
+	}
+	gl.bindRenderbuffer(gl.RENDERBUFFER, fbo.rbo); // Bind the object to target
+	gl.renderbufferStorage(
+		gl.RENDERBUFFER,
+		gl.DEPTH_COMPONENT16,
+		window.innerWidth,
+		window.innerHeight
+	);
+
+	// Attach the texture and the renderbuffer object to the FBO
+	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	gl.framebufferTexture2D(
+		gl.FRAMEBUFFER,
+		gl.COLOR_ATTACHMENT0,
+		gl.TEXTURE_2D,
+		fbo.tex,
+		0
+	);
+	gl.framebufferRenderbuffer(
+		gl.FRAMEBUFFER,
+		gl.DEPTH_ATTACHMENT,
+		gl.RENDERBUFFER,
+		fbo.rbo
+	);
+
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	gl.bindTexture(gl.TEXTURE_2D, null);
+	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 }
 
 async function loadAsset() {
@@ -402,10 +483,27 @@ async function loadAsset() {
 	results.length = 0;
 }
 
+// -------- END INIT ------- //
+
+function animate(time) {
+	if (!global.start) {
+		global.start = time;
+	}
+	// in milliseconds
+	let delta = time - global.start;
+	global.start = time;
+
+	stats.update();
+
+	render(delta, time);
+
+	window.requestAnimationFrame(animate);
+}
+
 function render(delta, time) {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(global.program);
+	gl.useProgram(program.program);
 
 	// set uniform
 	let mvp = glm.mat4.create();
@@ -432,22 +530,8 @@ function render(delta, time) {
 	gl.drawElements(gl.TRIANGLES, model.ctr, gl.UNSIGNED_INT, 0);
 }
 
-function animate(time) {
-	if (!global.start) {
-		global.start = time;
-	}
-	// in milliseconds
-	let delta = time - global.start;
-	global.start = time;
-
-	stats.update();
-
-	render(delta, time);
-
-	window.requestAnimationFrame(animate);
-}
-
 window.onresize = () => {
+	initFBO();
 	let canvas = document.querySelector("canvas");
 
 	if (gl && canvas) {
@@ -466,7 +550,9 @@ window.onresize = () => {
 
 window.onload = () => {
 	initWebGL();
-	myInit();
+	initVar();
+	initProgram();
+	initFBO();
 	loadAsset().then(() => {
 		// rendering loop
 		window.requestAnimationFrame(animate);
