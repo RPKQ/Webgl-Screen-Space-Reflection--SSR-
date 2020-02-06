@@ -46,11 +46,10 @@
 
 			out vec4 fFragColor;
 			in vec2 texcoord;
-			//uniform sampler2D tex;
+			uniform sampler2D tex;
 
 			void main() {
-			//fFragColor = texture2D(tex, texcoord);
-			fFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+			fFragColor = vec4(texture(tex, texcoord).rgb, 1.0);
 			}
 		</script>
 

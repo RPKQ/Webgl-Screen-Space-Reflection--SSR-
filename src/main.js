@@ -18,7 +18,8 @@ var flag = {
 
 var programOrigin = {
 	id: null,
-	umvp: null
+	umvp: null,
+	utex: null
 };
 var programWindow = {
 	id: null,
@@ -32,6 +33,7 @@ var winModel = {
 };
 var cubeModel = {
 	vao: null,
+	atex: null,
 	mm: null,
 	mv: null,
 	mp: null
@@ -382,6 +384,7 @@ function initProgram() {
 	// shader
 	programOrigin.id = createShader("vertex", "fragment");
 	programOrigin.umvp = gl.getUniformLocation(programOrigin.id, "mvp");
+	programOrigin.utex = gl.getUniformLocation(programOrigin.id, "tex");
 
 	//window program
 	programWindow.id = createShader("windowV", "windowF");
@@ -746,7 +749,18 @@ async function initModels() {
 	gl.bindAttribLocation(programOrigin.id, 0, "iPosition");
 	gl.bindAttribLocation(programOrigin.id, 1, "iTexcoord");
 
-	programOrigin.umvp = gl.getUniformLocation(programOrigin.id, "mvp");
+	// cubeModel -- tex
+	let promises = [];
+	promises.push(loadImage("./asset/a.png"));
+	let results = await Promise.all(promises);
+
+	cubeModel.atex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, results[0]);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 }
 
 // -------- END INIT ------- //
@@ -780,9 +794,13 @@ function render(delta, time) {
 	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
+	gl.uniform1i(programOrigin.utex, 0);
 	gl.uniformMatrix4fv(programOrigin.umvp, false, mvp);
+
 	gl.bindVertexArray(cubeModel.vao);
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 24);
+	gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
 
 	// draw to screen
 
