@@ -25,6 +25,12 @@ var programWindow = {
 	id: null,
 	utex: null
 };
+var programDefer1 = {
+	id: null,
+	umvp: null,
+	um: null,
+	utex: null
+};
 
 // -- Model -- //
 
@@ -49,11 +55,7 @@ var fbo = {
 var Gbuffer = {
 	id: null,
 	posTex: null,
-	UVtex: null,
-	TBNtex: null,
-	normalTex: null,
-	eyeTex: null,
-	lightTex: null,
+	colorTex: null,
 	depthTex: null
 };
 
@@ -338,6 +340,12 @@ function initWebGL() {
 		alert("WebGL 2 not available");
 	}
 
+	if (!gl.getExtension("EXT_color_buffer_float")) {
+		console.error("FLOAT color buffer not available");
+		document.body.innerHTML =
+			"This example requires EXT_color_buffer_float which is unavailable on this system.";
+	}
+
 	// webgl setting
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clearDepth(1.0);
@@ -391,6 +399,12 @@ function initProgram() {
 	programWindow.utex = gl.getUniformLocation(programWindow.id, "tex");
 	gl.useProgram(programWindow.id);
 	gl.uniform1i(programWindow.utex, 0);
+
+	// TODO: defer1
+	programDefer1.id = createShader("defer1V", "defer1F");
+	programDefer1.umvp = gl.getUniformLocation(programDefer1.id, "mvp");
+	programDefer1.um = gl.getUniformLocation(programDefer1.id, "m");
+	programDefer1.utex = gl.getUniformLocation(programDefer1.id, "tex");
 }
 
 function initFBO() {
@@ -481,7 +495,7 @@ function genGbufferTex(fbo, target) {
 		gl.FRAMEBUFFER,
 		gl.COLOR_ATTACHMENT0 + target,
 		gl.TEXTURE_2D,
-		Gbuffer.posTex,
+		tex,
 		0
 	);
 
@@ -489,16 +503,12 @@ function genGbufferTex(fbo, target) {
 }
 
 function initGbuffer() {
+	//TODO:
 	// delete old
 
 	if (Gbuffer.id) gl.deleteFramebuffer(Gbuffer.id);
 	if (Gbuffer.posTex) gl.deleteTexture(Gbuffer.posTex);
-	if (Gbuffer.UVtex) gl.deleteTexture(Gbuffer.UVtex);
-	if (Gbuffer.eyeTex) gl.deleteTexture(Gbuffer.eyeTex);
-	if (Gbuffer.TBNtex) gl.deleteTexture(Gbuffer.TBNtex);
-	if (Gbuffer.lightTex) gl.deleteTexture(Gbuffer.lightTex);
-	if (Gbuffer.normalTex) gl.deleteTexture(Gbuffer.normalTex);
-	if (Gbuffer.depthTex) gl.deleteTexture(Gbuffer.depthTex);
+	if (Gbuffer.colorTex) gl.deleteTexture(Gbuffer.colorTex);
 
 	// FBO
 	Gbuffer.id = gl.createFramebuffer();
@@ -508,20 +518,9 @@ function initGbuffer() {
 	gl.activeTexture(gl.TEXTURE0);
 
 	Gbuffer.posTex = genGbufferTex(Gbuffer.id, 0);
-	Gbuffer.UVTex = genGbufferTex(Gbuffer.id, 1);
-	Gbuffer.eyeTex = genGbufferTex(Gbuffer.id, 2);
-	Gbuffer.TBNTex = genGbufferTex(Gbuffer.id, 3);
-	Gbuffer.lightTex = genGbufferTex(Gbuffer.id, 4);
-	Gbuffer.normalTex = genGbufferTex(Gbuffer.id, 5);
+	Gbuffer.colorTex = genGbufferTex(Gbuffer.id, 1);
 
-	gl.drawBuffers([
-		gl.COLOR_ATTACHMENT0,
-		gl.COLOR_ATTACHMENT1,
-		gl.COLOR_ATTACHMENT2,
-		gl.COLOR_ATTACHMENT3,
-		gl.COLOR_ATTACHMENT4,
-		gl.COLOR_ATTACHMENT5
-	]);
+	gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
 
 	// depth attachment
 	Gbuffer.depthTex = gl.createTexture();
@@ -788,16 +787,29 @@ function render(delta, time) {
 	glm.mat4.multiply(mvp, cubeModel.mp, cubeModel.mv);
 	glm.mat4.multiply(mvp, mvp, cubeModel.mm);
 
-	// draw to fbo
+	// gl.useProgram(programOrigin.id);
+	// gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(programOrigin.id);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	// gl.activeTexture(gl.TEXTURE0);
+	// gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
+	// gl.uniform1i(programOrigin.utex, 0);
+	// gl.uniformMatrix4fv(programOrigin.umvp, false, mvp);
+
+	// gl.bindVertexArray(cubeModel.vao);
+	// gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
+
+	// draw to fbo
+	// TODO:
+	gl.useProgram(programDefer1.id);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
-	gl.uniform1i(programOrigin.utex, 0);
-	gl.uniformMatrix4fv(programOrigin.umvp, false, mvp);
+	gl.uniform1i(programDefer1.utex, 0);
+	gl.uniformMatrix4fv(programDefer1.umvp, false, mvp);
+	gl.uniformMatrix4fv(programDefer1.um, false, cubeModel.mm);
 
 	gl.bindVertexArray(cubeModel.vao);
 	gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
@@ -809,7 +821,7 @@ function render(delta, time) {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	gl.useProgram(programWindow.id);
-	gl.bindTexture(gl.TEXTURE_2D, fbo.tex);
+	gl.bindTexture(gl.TEXTURE_2D, Gbuffer.colorTex);
 	gl.uniform1i(programWindow.utex, 0);
 
 	gl.bindVertexArray(winModel.vao);
