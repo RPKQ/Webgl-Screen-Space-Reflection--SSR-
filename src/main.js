@@ -7,37 +7,38 @@ var gl = window.WebGL2RenderingContext.prototype; // specify type for code snipp
 var stats = null;
 var gui = null;
 
-var program = {
-	program: null,
-	window: null
-};
-
 var global = {
 	start: null
-};
-var matrix = {
-	m: null,
-	v: null,
-	p: null
-};
-var uniform = {
-	mvp: null,
-	m: null,
-	eye: null,
-	light: null,
-	co: null,
-	nm: null,
-	use: null,
-	windowTex: null
-};
-var model = {
-	vao: null,
-	ctr: null,
-	tex: []
 };
 var flag = {
 	use: false
 };
+
+// -- program -- //
+
+var programOrigin = {
+	id: null,
+	umvp: null
+};
+var programWindow = {
+	id: null,
+	utex: null
+};
+
+// -- Model -- //
+
+var winModel = {
+	vao: null
+};
+var cubeModel = {
+	vao: null,
+	mm: null,
+	mv: null,
+	mp: null
+};
+
+// -- FBO -- //
+
 var fbo = {
 	id: null,
 	tex: null,
@@ -52,9 +53,6 @@ var Gbuffer = {
 	eyeTex: null,
 	lightTex: null,
 	depthTex: null
-};
-var winModel = {
-	vao: null
 };
 
 // -------- TOOLS ---------- //
@@ -355,24 +353,24 @@ function initWebGL() {
 	gui.domElement.classList.add("navbar");
 	let nmFolder = gui.addFolder("Normal");
 	nmFolder.add(flag, "use").onChange(val => {
-		gl.uniform1i(uniform.use, val);
+		gl.uniform1i(1, val);
 	});
 	nmFolder.open();
 }
 
 function initVar() {
 	// matrix
-	matrix.m = glm.mat4.create();
-	matrix.v = glm.mat4.create();
-	matrix.p = glm.mat4.create();
+	cubeModel.mm = glm.mat4.create();
+	cubeModel.mv = glm.mat4.create();
+	cubeModel.mp = glm.mat4.create();
 	glm.mat4.lookAt(
-		matrix.v,
-		glm.vec3.fromValues(0, 2.5, 5),
+		cubeModel.mv,
+		glm.vec3.fromValues(1, 1, 0.5),
 		glm.vec3.fromValues(0, 0, 0),
 		glm.vec3.fromValues(0, 1, 0)
 	);
 	glm.mat4.perspective(
-		matrix.p,
+		cubeModel.mp,
 		Math.PI * 0.5,
 		gl.drawingBufferWidth / gl.drawingBufferHeight,
 		0.1,
@@ -382,27 +380,14 @@ function initVar() {
 
 function initProgram() {
 	// shader
-	program.program = createShader("vertex", "fragment");
-	program.window = createShader("windowV", "windowF");
-
-	uniform.mvp = gl.getUniformLocation(program.program, "uMVP");
-	uniform.co = gl.getUniformLocation(program.program, "uCO");
-	uniform.nm = gl.getUniformLocation(program.program, "uNM");
-	uniform.m = gl.getUniformLocation(program.program, "uM");
-	uniform.eye = gl.getUniformLocation(program.program, "uEye");
-	uniform.light = gl.getUniformLocation(program.program, "uLight");
-	uniform.use = gl.getUniformLocation(program.program, "uUse");
-
-	gl.useProgram(program.program);
-	gl.uniform1i(uniform.co, 0);
-	gl.uniform1i(uniform.nm, 1);
-	gl.uniform3fv(uniform.eye, glm.vec3.fromValues(0.0, 2.5, 0.0));
-	gl.uniform1i(uniform.use, flag.use);
+	programOrigin.id = createShader("vertex", "fragment");
+	programOrigin.umvp = gl.getUniformLocation(programOrigin.id, "mvp");
 
 	//window program
-	uniform.windowTex = gl.getUniformLocation(program.window, "tex");
-	gl.useProgram(program.window);
-	gl.uniform1i(uniform.windowTex, 0);
+	programWindow.id = createShader("windowV", "windowF");
+	programWindow.utex = gl.getUniformLocation(programWindow.id, "tex");
+	gl.useProgram(programWindow.id);
+	gl.uniform1i(programWindow.utex, 0);
 }
 
 function initFBO() {
@@ -562,34 +547,8 @@ function initGbuffer() {
 }
 
 async function initModels() {
-	// model
-	let ret = await loadObj("./asset/ladybug.obj");
-
-	let promises = [];
-	promises.push(loadImage("./asset/ladybug_co.png"));
-	promises.push(loadImage("./asset/ladybug_nm.png"));
-	let results = await Promise.all(promises);
-
-	for (let i of [0, 1]) {
-		model.tex[i] = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, model.tex[i]);
-		gl.texImage2D(
-			gl.TEXTURE_2D,
-			0,
-			gl.RGB,
-			gl.RGB,
-			gl.UNSIGNED_BYTE,
-			results[i]
-		);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	}
-
-	results.length = 0;
-
 	// windowModel
+
 	winModel.vao = gl.createVertexArray();
 	gl.bindVertexArray(winModel.vao);
 
@@ -614,7 +573,6 @@ async function initModels() {
 		1.0,
 		1.0
 	]);
-	const pos = new Float32Array([0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5]);
 	let vbo = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 	gl.bufferData(gl.ARRAY_BUFFER, screen_pos_texcoord, gl.STATIC_DRAW);
@@ -624,6 +582,171 @@ async function initModels() {
 	gl.enableVertexAttribArray(1);
 
 	gl.bindVertexArray(null);
+
+	// cubeModel
+
+	cubeModel.vao = gl.createVertexArray();
+	gl.bindVertexArray(cubeModel.vao);
+
+	const positions = new Float32Array([
+		// Front face
+		-0.25,
+		-0.25,
+		0.25,
+		0.25,
+		-0.25,
+		0.25,
+		0.25,
+		0.25,
+		0.25,
+		-0.25,
+		0.25,
+		0.25,
+
+		// Back face
+		-0.25,
+		-0.25,
+		-0.25,
+		-0.25,
+		0.25,
+		-0.25,
+		0.25,
+		0.25,
+		-0.25,
+		0.25,
+		-0.25,
+		-0.25,
+
+		// Top face
+		-0.25,
+		0.25,
+		-0.25,
+		-0.25,
+		0.25,
+		0.25,
+		0.25,
+		0.25,
+		0.25,
+		0.25,
+		0.25,
+		-0.25,
+
+		// Bottom face
+		-0.25,
+		-0.25,
+		-0.25,
+		0.25,
+		-0.25,
+		-0.25,
+		0.25,
+		-0.25,
+		0.25,
+		-0.25,
+		-0.25,
+		0.25,
+
+		// Right face
+		0.25,
+		-0.25,
+		-0.25,
+		0.25,
+		0.25,
+		-0.25,
+		0.25,
+		0.25,
+		0.25,
+		0.25,
+		-0.25,
+		0.25,
+
+		// Left face
+		-0.25,
+		-0.25,
+		-0.25,
+		-0.25,
+		-0.25,
+		0.25,
+		-0.25,
+		0.25,
+		0.25,
+		-0.25,
+		0.25,
+		-0.25
+	]);
+	const texcoords = new Float32Array([
+		// Front
+		0.0,
+		0.0,
+		1.0,
+		0.0,
+		1.0,
+		1.0,
+		0.0,
+		1.0,
+		// Back
+		0.0,
+		0.0,
+		1.0,
+		0.0,
+		1.0,
+		1.0,
+		0.0,
+		1.0,
+		// Top
+		0.0,
+		0.0,
+		1.0,
+		0.0,
+		1.0,
+		1.0,
+		0.0,
+		1.0,
+		// Bottom
+		0.0,
+		0.0,
+		1.0,
+		0.0,
+		1.0,
+		1.0,
+		0.0,
+		1.0,
+		// Right
+		0.0,
+		0.0,
+		1.0,
+		0.0,
+		1.0,
+		1.0,
+		0.0,
+		1.0,
+		// Left
+		0.0,
+		0.0,
+		1.0,
+		0.0,
+		1.0,
+		1.0,
+		0.0,
+		1.0
+	]);
+	vbo = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+	gl.bufferData(
+		gl.ARRAY_BUFFER,
+		positions.byteLength + texcoords.byteLength,
+		gl.STATIC_DRAW
+	);
+	gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
+	gl.bufferSubData(gl.ARRAY_BUFFER, positions.byteLength, texcoords);
+	gl.enableVertexAttribArray(0);
+	gl.enableVertexAttribArray(1);
+	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, positions.byteLength);
+
+	gl.bindAttribLocation(programOrigin.id, 0, "iPosition");
+	gl.bindAttribLocation(programOrigin.id, 1, "iTexcoord");
+
+	programOrigin.umvp = gl.getUniformLocation(programOrigin.id, "mvp");
 }
 
 // -------- END INIT ------- //
@@ -636,6 +759,8 @@ function animate(time) {
 	let delta = time - global.start;
 	global.start = time;
 
+	glm.mat4.rotate(cubeModel.mm, cubeModel.mm, delta / 500.0, [0.25, 1.0, 0.5]);
+
 	stats.update();
 
 	render(delta, time);
@@ -644,42 +769,30 @@ function animate(time) {
 }
 
 function render(delta, time) {
-	gl.useProgram(program.program);
+	// set uniform
+	let mvp = glm.mat4.create();
+	glm.mat4.multiply(mvp, cubeModel.mp, cubeModel.mv);
+	glm.mat4.multiply(mvp, mvp, cubeModel.mm);
+
+	// draw to fbo
+
+	gl.useProgram(programOrigin.id);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	// set uniform
-	let mvp = glm.mat4.create();
-	glm.mat4.multiply(mvp, matrix.p, matrix.v);
-	glm.mat4.multiply(mvp, mvp, matrix.m);
-	gl.uniformMatrix4fv(uniform.mvp, false, mvp);
-	gl.uniformMatrix4fv(uniform.m, false, matrix.m);
-
-	// draw to fbo
-	let light = glm.vec3.fromValues(
-		40.0 * Math.sin(time * 0.001),
-		30.0 + 20.0 * Math.cos(time * 0.001),
-		40.0
-	);
-	gl.uniform3fv(uniform.light, light);
-
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, model.tex[0]);
-	gl.activeTexture(gl.TEXTURE1);
-	gl.bindTexture(gl.TEXTURE_2D, model.tex[1]);
-
-	gl.bindVertexArray(model.vao);
-	gl.drawElements(gl.TRIANGLES, model.ctr, gl.UNSIGNED_INT, 0);
+	gl.uniformMatrix4fv(programOrigin.umvp, false, mvp);
+	gl.bindVertexArray(cubeModel.vao);
+	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 24);
 
 	// draw to screen
+
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	gl.clearColor(1.0, 0.0, 0.0, 1.0);
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(program.window);
-	gl.activeTexture(gl.TEXTURE0);
+	gl.useProgram(programWindow.id);
 	gl.bindTexture(gl.TEXTURE_2D, fbo.tex);
-	gl.uniform1i(uniform.windowTex, 0);
+	gl.uniform1i(programWindow.utex, 0);
 
 	gl.bindVertexArray(winModel.vao);
 	gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
@@ -693,7 +806,7 @@ window.onresize = () => {
 		canvas.width = window.innerWidth;
 		canvas.height = window.innerHeight;
 		glm.mat4.perspective(
-			matrix.p,
+			cubeModel.mp,
 			Math.PI * 0.5,
 			gl.drawingBufferWidth / gl.drawingBufferHeight,
 			0.1,
