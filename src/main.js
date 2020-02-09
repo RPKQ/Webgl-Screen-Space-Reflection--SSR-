@@ -400,7 +400,7 @@ function initProgram() {
 	gl.useProgram(programWindow.id);
 	gl.uniform1i(programWindow.utex, 0);
 
-	// TODO: defer1
+	//  defer1
 	programDefer1.id = createShader("defer1V", "defer1F");
 	programDefer1.umvp = gl.getUniformLocation(programDefer1.id, "mvp");
 	programDefer1.um = gl.getUniformLocation(programDefer1.id, "m");
@@ -503,7 +503,6 @@ function genGbufferTex(fbo, target) {
 }
 
 function initGbuffer() {
-	//TODO:
 	// delete old
 
 	if (Gbuffer.id) gl.deleteFramebuffer(Gbuffer.id);
@@ -760,6 +759,26 @@ async function initModels() {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+	// ASSIMP
+	var scene = new THREE.Scene();
+	var loader = new THREE.AssimpJSONLoader();
+	//var group = new THREE.Object3D();
+
+	loader.load("./asset/assimp/spider.obj.assimp.json", function(model) {
+		console.log(model);
+
+		model.traverse(function(child) {
+			if (child instanceof THREE.Mesh) {
+				// child.material = new THREE.MeshLambertMaterial({color:0xaaaaaa});
+				console.log(child.geometry);
+			}
+		});
+
+		model.scale.set(0.1, 0.1, 0.1);
+
+		scene.add(model);
+	});
 }
 
 // -------- END INIT ------- //
@@ -800,7 +819,6 @@ function render(delta, time) {
 	// gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
 
 	// draw to fbo
-	// TODO:
 	gl.useProgram(programDefer1.id);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
