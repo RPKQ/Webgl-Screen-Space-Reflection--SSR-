@@ -4,6 +4,7 @@ import * as Dat from "dat.gui";
 import * as Program from "./Program";
 import * as Camera from "./Camera";
 import * as WinModel from "./WinModel";
+import { loadImage, _loadFile } from "./utils";
 
 // global variable
 var gl = window.WebGL2RenderingContext.prototype; // specify type for code snippet
@@ -13,10 +14,6 @@ var gui = null;
 var global = {
 	start: null
 };
-var flag = {
-	use: false
-};
-
 // -- program -- //
 
 var programOrigin = null;
@@ -47,8 +44,6 @@ var Gbuffer = {
 	colorTex: null,
 	depthTex: null
 };
-
-// -------- TOOLS ---------- //
 
 async function loadObj(url) {
 	// read file
@@ -244,43 +239,6 @@ async function loadObj(url) {
 	return true;
 }
 
-function loadImage(url) {
-	return new Promise((resolve, reject) => {
-		let img = new Image();
-		img.onload = () => {
-			resolve(img);
-		};
-		img.onerror = () => {
-			reject(new Error(`Failed to load image's url: ${url}`));
-		};
-		img.src = url;
-		img.crossOrigin = "anonymous";
-	});
-}
-
-function _loadFile(url) {
-	let fr = new FileReader();
-	return new Promise((resolve, reject) => {
-		let req = new XMLHttpRequest();
-		req.open("GET", url, true);
-		req.responseType = "blob";
-		req.onload = () => {
-			fr.readAsText(req.response);
-			fr.onload = e => {
-				let f = e.target.result;
-				let ls = f.split(/\r?\n/);
-				resolve(ls);
-			};
-		};
-		req.onerror = () => {
-			reject(new Error(`Failed to load file's url: ${url}`));
-		};
-		req.send();
-	});
-}
-
-// ------- END TOOLS -------- //
-
 // --------- INIT ----------- //
 
 function initWebGL() {
@@ -316,9 +274,9 @@ function initWebGL() {
 	gui = new Dat.GUI();
 	gui.domElement.classList.add("navbar");
 	let nmFolder = gui.addFolder("Normal");
-	nmFolder.add(flag, "use").onChange(val => {
-		gl.uniform1i(1, val);
-	});
+	// nmFolder.add(flag, "use").onChange(val => {
+	// 	gl.uniform1i(1, val);
+	// });
 	nmFolder.open();
 }
 
