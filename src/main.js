@@ -3,6 +3,7 @@ import * as Stats from "stats-js";
 import * as Dat from "dat.gui";
 import * as Program from "./Program";
 import * as Camera from "./Camera";
+import * as WinModel from "./WinModel";
 
 // global variable
 var gl = window.WebGL2RenderingContext.prototype; // specify type for code snippet
@@ -25,9 +26,8 @@ var camera = null;
 
 // -- Model -- //
 
-var winModel = {
-	vao: null
-};
+var winModel = null;
+
 var cubeModel = {
 	vao: null,
 	atex: null,
@@ -326,6 +326,7 @@ function initVar() {
 	// matrix
 	cubeModel.mm = glm.mat4.create();
 
+	// camera
 	camera = new Camera.default(
 		gl,
 		[1, 1, 0.5],
@@ -334,9 +335,13 @@ function initVar() {
 		gl.drawingBufferHeight
 	);
 
+	// program
 	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
 	programOrigin = new Program.default(gl, "vertex", "fragment");
+
+	// winModel
+	winModel = new WinModel.default(gl);
 }
 
 function initFBO() {
@@ -480,42 +485,6 @@ function initGbuffer() {
 }
 
 async function initModels() {
-	// windowModel
-
-	winModel.vao = gl.createVertexArray();
-	gl.bindVertexArray(winModel.vao);
-
-	const screen_pos_texcoord = new Float32Array([
-		1.0,
-		-1.0,
-		1.0,
-		0.0,
-
-		-1.0,
-		-1.0,
-		0.0,
-		0.0,
-
-		-1.0,
-		1.0,
-		0.0,
-		1.0,
-
-		1.0,
-		1.0,
-		1.0,
-		1.0
-	]);
-	let vbo = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-	gl.bufferData(gl.ARRAY_BUFFER, screen_pos_texcoord, gl.STATIC_DRAW);
-	gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 4 * 4, 0);
-	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
-	gl.enableVertexAttribArray(0);
-	gl.enableVertexAttribArray(1);
-
-	gl.bindVertexArray(null);
-
 	// cubeModel
 
 	cubeModel.vao = gl.createVertexArray();
@@ -662,7 +631,7 @@ async function initModels() {
 		0.0,
 		1.0
 	]);
-	vbo = gl.createBuffer();
+	let vbo = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 	gl.bufferData(
 		gl.ARRAY_BUFFER,
@@ -771,8 +740,7 @@ function render(delta, time) {
 	gl.useProgram(programWindow.id);
 	programWindow.setTex("tex", Gbuffer.colorTex, 0);
 
-	gl.bindVertexArray(winModel.vao);
-	gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+	winModel.draw();
 }
 
 window.onresize = () => {
