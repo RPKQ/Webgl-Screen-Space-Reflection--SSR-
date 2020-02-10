@@ -2,6 +2,7 @@ import * as glm from "gl-matrix";
 import * as Stats from "stats-js";
 import * as Dat from "dat.gui";
 import * as Program from "./Program";
+import * as Camera from "./Camera";
 
 // global variable
 var gl = window.WebGL2RenderingContext.prototype; // specify type for code snippet
@@ -20,6 +21,7 @@ var flag = {
 var programOrigin = null;
 var programWindow = null;
 var programDefer1 = null;
+var camera = null;
 
 // -- Model -- //
 
@@ -29,9 +31,7 @@ var winModel = {
 var cubeModel = {
 	vao: null,
 	atex: null,
-	mm: null,
-	mv: null,
-	mp: null
+	mm: null
 };
 
 // -- FBO -- //
@@ -325,25 +325,15 @@ function initWebGL() {
 function initVar() {
 	// matrix
 	cubeModel.mm = glm.mat4.create();
-	cubeModel.mv = glm.mat4.create();
-	cubeModel.mp = glm.mat4.create();
-	glm.mat4.lookAt(
-		cubeModel.mv,
-		glm.vec3.fromValues(1, 1, 0.5),
-		glm.vec3.fromValues(0, 0, 0),
-		glm.vec3.fromValues(0, 1, 0)
-	);
-	glm.mat4.perspective(
-		cubeModel.mp,
-		Math.PI * 0.5,
-		gl.drawingBufferWidth / gl.drawingBufferHeight,
-		0.1,
-		100.0
-	);
-}
 
-function initProgram() {
-	//  defer1
+	camera = new Camera.default(
+		gl,
+		[1, 1, 0.5],
+		[0, 0, 0],
+		gl.drawingBufferWidth,
+		gl.drawingBufferHeight
+	);
+
 	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
 	programOrigin = new Program.default(gl, "vertex", "fragment");
@@ -745,7 +735,7 @@ function animate(time) {
 function render(delta, time) {
 	// set uniform
 	let mvp = glm.mat4.create();
-	glm.mat4.multiply(mvp, cubeModel.mp, cubeModel.mv);
+	glm.mat4.multiply(mvp, camera.pMat, camera.vMat);
 	glm.mat4.multiply(mvp, mvp, cubeModel.mm);
 
 	// gl.useProgram(programOrigin.id);
@@ -792,21 +782,14 @@ window.onresize = () => {
 	if (gl && canvas) {
 		canvas.width = window.innerWidth;
 		canvas.height = window.innerHeight;
-		glm.mat4.perspective(
-			cubeModel.mp,
-			Math.PI * 0.5,
-			gl.drawingBufferWidth / gl.drawingBufferHeight,
-			0.1,
-			100.0
-		);
-		gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+		camera.reshape(window.innerWidth, window.innerHeight);
+		gl.viewport(0, 0, window.innerWidth, window.innerHeight);
 	}
 };
 
 window.onload = () => {
 	initWebGL();
 	initVar();
-	initProgram();
 	initFBO();
 	initGbuffer();
 	initModels().then(() => {
