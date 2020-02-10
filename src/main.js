@@ -4,6 +4,7 @@ import * as Dat from "dat.gui";
 import * as Program from "./Program";
 import * as Camera from "./Camera";
 import * as WinModel from "./WinModel";
+import * as ObjModel from "./ObjModel";
 import { loadImage, _loadFile } from "./utils";
 
 // global variable
@@ -12,14 +13,19 @@ var stats = null;
 var gui = null;
 
 var global = {
-	start: null
+	start: null,
+	canvas: null
 };
 // -- program -- //
 
-var programOrigin = null;
+var programObj = null;
+var programCube = null;
 var programWindow = null;
 var programDefer1 = null;
+
 var camera = null;
+
+var model = null;
 
 // -- Model -- //
 
@@ -45,209 +51,17 @@ var Gbuffer = {
 	depthTex: null
 };
 
-async function loadObj(url) {
-	// read file
-	let lines = await _loadFile(url);
-
-	// parse obj format
-	let v = [];
-	let vt = [];
-	let vn = [];
-	let idx = [];
-
-	for (let line of lines) {
-		line = line.split(" ");
-		// console.log(line);
-		if (line[0] == "v") {
-			v.push(parseFloat(line[1]));
-			v.push(parseFloat(line[2]));
-			v.push(parseFloat(line[3]));
-		} else if (line[0] == "vn") {
-			vn.push(parseFloat(line[1]));
-			vn.push(parseFloat(line[2]));
-			vn.push(parseFloat(line[3]));
-		} else if (line[0] == "vt") {
-			vt.push(parseFloat(line[1]));
-			// flip vertically
-			vt.push(1.0 - parseFloat(line[2]));
-		} else if (line[0] == "f") {
-			// start from zero
-			idx.push(parseInt(line[1].split("/")[0]) - 1);
-			idx.push(parseInt(line[2].split("/")[0]) - 1);
-			idx.push(parseInt(line[3].split("/")[0]) - 1);
-		}
-	}
-
-	// compute tangent
-	let tn = [];
-	for (let i = 0; i < idx.length; i += 3) {
-		let idx1 = idx[i];
-		let idx2 = idx[i + 1];
-		let idx3 = idx[i + 2];
-
-		let p1 = glm.vec3.fromValues(
-			v[idx1 * 3 + 0],
-			v[idx1 * 3 + 1],
-			v[idx1 * 3 + 2]
-		);
-		let p2 = glm.vec3.fromValues(
-			v[idx2 * 3 + 0],
-			v[idx2 * 3 + 1],
-			v[idx2 * 3 + 2]
-		);
-		let p3 = glm.vec3.fromValues(
-			v[idx3 * 3 + 0],
-			v[idx3 * 3 + 1],
-			v[idx3 * 3 + 2]
-		);
-
-		let n1 = glm.vec3.fromValues(
-			vn[idx1 * 3 + 0],
-			vn[idx1 * 3 + 1],
-			vn[idx1 * 3 + 2]
-		);
-		let n2 = glm.vec3.fromValues(
-			vn[idx2 * 3 + 0],
-			vn[idx2 * 3 + 1],
-			vn[idx2 * 3 + 2]
-		);
-		let n3 = glm.vec3.fromValues(
-			vn[idx3 * 3 + 0],
-			vn[idx3 * 3 + 1],
-			vn[idx3 * 3 + 2]
-		);
-
-		let uv1 = glm.vec2.fromValues(vt[idx1 * 2 + 0], vt[idx1 * 2 + 1]);
-		let uv2 = glm.vec2.fromValues(vt[idx2 * 2 + 0], vt[idx2 * 2 + 1]);
-		let uv3 = glm.vec2.fromValues(vt[idx3 * 2 + 0], vt[idx3 * 2 + 1]);
-
-		let dp1 = glm.vec3.create();
-		glm.vec3.sub(dp1, p2, p1);
-		let dp2 = glm.vec3.create();
-		glm.vec3.sub(dp2, p3, p1);
-
-		let duv1 = glm.vec2.create();
-		glm.vec2.sub(duv1, uv2, uv1);
-		let duv2 = glm.vec2.create();
-		glm.vec2.sub(duv2, uv3, uv1);
-
-		let r = 1.0 / (duv1[0] * duv2[1] - duv1[1] * duv2[0]);
-
-		let t = glm.vec3.fromValues(
-			(dp1[0] * duv2[1] - dp2[0] * duv1[1]) * r,
-			(dp1[1] * duv2[1] - dp2[1] * duv1[1]) * r,
-			(dp1[2] * duv2[1] - dp2[2] * duv1[1]) * r
-		);
-
-		let t1 = glm.vec3.create();
-		glm.vec3.cross(t1, n1, t);
-		let t2 = glm.vec3.create();
-		glm.vec3.cross(t2, n2, t);
-		let t3 = glm.vec3.create();
-		glm.vec3.cross(t3, n3, t);
-
-		tn[idx1 * 3 + 0] = t1[0];
-		tn[idx1 * 3 + 1] = t1[1];
-		tn[idx1 * 3 + 2] = t1[2];
-
-		tn[idx2 * 3 + 0] = t2[0];
-		tn[idx2 * 3 + 1] = t2[1];
-		tn[idx2 * 3 + 2] = t2[2];
-
-		tn[idx3 * 3 + 0] = t3[0];
-		tn[idx3 * 3 + 1] = t3[1];
-		tn[idx3 * 3 + 2] = t3[2];
-	}
-
-	// stats
-	console.log(
-		`Load ${url}: ${v.length} vertices, ${vt.length} texcoords, ${vn.length} normals ` +
-			`${tn.length} tangents ${idx.length / 3} faces`
-	);
-
-	// vao
-	model.vao = gl.createVertexArray();
-	gl.bindVertexArray(model.vao);
-
-	// vbo
-	let positions = new Float32Array(v);
-	let normals = new Float32Array(vn);
-	let texcoords = new Float32Array(vt);
-	let tangents = new Float32Array(tn);
-
-	let vbo = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-	gl.bufferData(
-		gl.ARRAY_BUFFER,
-		positions.byteLength +
-			normals.byteLength +
-			texcoords.byteLength +
-			tangents.byteLength,
-		gl.STATIC_DRAW
-	);
-	gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
-	gl.bufferSubData(gl.ARRAY_BUFFER, positions.byteLength, normals);
-	gl.bufferSubData(
-		gl.ARRAY_BUFFER,
-		positions.byteLength + normals.byteLength,
-		texcoords
-	);
-	gl.bufferSubData(
-		gl.ARRAY_BUFFER,
-		positions.byteLength + normals.byteLength + texcoords.byteLength,
-		tangents
-	);
-
-	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-	gl.enableVertexAttribArray(0);
-	gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, positions.byteLength);
-	gl.enableVertexAttribArray(1);
-	gl.vertexAttribPointer(
-		2,
-		2,
-		gl.FLOAT,
-		false,
-		0,
-		positions.byteLength + normals.byteLength
-	);
-	gl.enableVertexAttribArray(2);
-	gl.vertexAttribPointer(
-		3,
-		3,
-		gl.FLOAT,
-		false,
-		0,
-		positions.byteLength + normals.byteLength + texcoords.byteLength
-	);
-	gl.enableVertexAttribArray(3);
-
-	// ebo
-	let indices = new Uint32Array(idx);
-	let ebo = gl.createBuffer();
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-	model.ctr = idx.length;
-
-	// free array
-	v.length = 0;
-	vt.length = 0;
-	vn.length = 0;
-	idx.length = 0;
-	tn.length = 0;
-
-	gl.bindVertexArray(null);
-	return true;
-}
+var rrtex = null;
 
 // --------- INIT ----------- //
 
 function initWebGL() {
-	let canvas = document.createElement("canvas");
-	canvas.width = window.innerWidth;
-	canvas.height = window.innerHeight;
-	document.querySelector("body").appendChild(canvas);
+	global.canvas = document.createElement("canvas");
+	global.canvas.width = window.innerWidth;
+	global.canvas.height = window.innerHeight;
+	document.querySelector("body").appendChild(global.canvas);
 
-	gl = canvas.getContext("webgl2");
+	gl = global.canvas.getContext("webgl2");
 	if (!gl) {
 		alert("WebGL 2 not available");
 	}
@@ -278,6 +92,8 @@ function initWebGL() {
 	// 	gl.uniform1i(1, val);
 	// });
 	nmFolder.open();
+
+	// control
 }
 
 function initVar() {
@@ -287,8 +103,8 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[1, 1, 0.5],
-		[0, 0, 0],
+		[2, 2, 2],
+		[0, 2, -1],
 		gl.drawingBufferWidth,
 		gl.drawingBufferHeight
 	);
@@ -296,7 +112,8 @@ function initVar() {
 	// program
 	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
-	programOrigin = new Program.default(gl, "vertex", "fragment");
+	programCube = new Program.default(gl, "vertex", "fragment");
+	programObj = new Program.default(gl, "objV", "objF");
 
 	// winModel
 	winModel = new WinModel.default(gl);
@@ -444,7 +261,6 @@ function initGbuffer() {
 
 async function initModels() {
 	// cubeModel
-
 	cubeModel.vao = gl.createVertexArray();
 	gl.bindVertexArray(cubeModel.vao);
 
@@ -603,16 +419,16 @@ async function initModels() {
 	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, positions.byteLength);
 
-	gl.bindAttribLocation(programOrigin.id, 0, "iPosition");
-	gl.bindAttribLocation(programOrigin.id, 1, "iTexcoord");
+	gl.bindAttribLocation(programCube.id, 0, "iPosition");
+	gl.bindAttribLocation(programCube.id, 1, "iTexcoord");
 
 	// cubeModel -- tex
 	let promises = [];
-	promises.push(loadImage("./asset/a.png"));
+	promises.push(loadImage("./asset/ladybug_co.png"));
 	let results = await Promise.all(promises);
 
-	cubeModel.atex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
+	rrtex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, rrtex);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, results[0]);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -620,24 +436,27 @@ async function initModels() {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 	// ASSIMP
-	var scene = new THREE.Scene();
-	var loader = new THREE.AssimpJSONLoader();
-	//var group = new THREE.Object3D();
+	// var scene = new THREE.Scene();
+	// var loader = new THREE.AssimpJSONLoader();
+	// //var group = new THREE.Object3D();
 
-	loader.load("./asset/assimp/spider.obj.assimp.json", function(model) {
-		console.log(model);
+	// loader.load("./asset/assimp/spider.obj.assimp.json", function(model) {
+	// 	console.log(model);
 
-		model.traverse(function(child) {
-			if (child instanceof THREE.Mesh) {
-				// child.material = new THREE.MeshLambertMaterial({color:0xaaaaaa});
-				console.log(child.geometry);
-			}
-		});
+	// 	model.traverse(function(child) {
+	// 		if (child instanceof THREE.Mesh) {
+	// 			// child.material = new THREE.MeshLambertMaterial({color:0xaaaaaa});
+	// 			console.log(child.geometry);
+	// 		}
+	// 	});
 
-		model.scale.set(0.1, 0.1, 0.1);
+	// 	model.scale.set(0.1, 0.1, 0.1);
 
-		scene.add(model);
-	});
+	// 	scene.add(model);
+	// });
+
+	// obj
+	model = new ObjModel.default(gl, "./asset/ladybug.obj");
 }
 
 // -------- END INIT ------- //
@@ -650,7 +469,7 @@ function animate(time) {
 	let delta = time - global.start;
 	global.start = time;
 
-	glm.mat4.rotate(cubeModel.mm, cubeModel.mm, delta / 500.0, [0.25, 1.0, 0.5]);
+	// glm.mat4.rotate(cubeModel.mm, cubeModel.mm, delta / 500.0, [0.25, 1.0, 0.5]);
 
 	stats.update();
 
@@ -665,40 +484,47 @@ function render(delta, time) {
 	glm.mat4.multiply(mvp, camera.pMat, camera.vMat);
 	glm.mat4.multiply(mvp, mvp, cubeModel.mm);
 
-	// gl.useProgram(programOrigin.id);
+	// gl.useProgram(programCube.id);
 	// gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
 	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	// gl.activeTexture(gl.TEXTURE0);
 	// gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
-	// gl.uniform1i(programOrigin.utex, 0);
-	// gl.uniformMatrix4fv(programOrigin.umvp, false, mvp);
+	// gl.uniform1i(programCube.utex, 0);
+	// gl.uniformMatrix4fv(programCube.umvp, false, mvp);
 
 	// gl.bindVertexArray(cubeModel.vao);
 	// gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
 
 	// draw to fbo
-	gl.useProgram(programDefer1.id);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	// gl.useProgram(programDefer1.id);
+	// gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
+	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	programDefer1.setMat4("mvp", mvp);
-	programDefer1.setMat4("m", cubeModel.mm);
-	programDefer1.setTex("tex", cubeModel.atex, 0);
+	// programDefer1.setMat4("mvp", mvp);
+	// programDefer1.setMat4("m", cubeModel.mm);
+	// programDefer1.setTex("tex", cubeModel.atex, 0);
 
-	gl.bindVertexArray(cubeModel.vao);
-	gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
+	// gl.bindVertexArray(cubeModel.vao);
+	// gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
 
 	// draw to screen
-
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(programWindow.id);
-	programWindow.setTex("tex", Gbuffer.colorTex, 0);
+	// gl.useProgram(programWindow.id);
+	// programWindow.setTex("tex", Gbuffer.colorTex, 0);
 
-	winModel.draw();
+	// winModel.draw();
+
+	gl.useProgram(programObj.id);
+	programObj.setInt("useTex", 1);
+	programObj.setTex("tex", rrtex, 0);
+	programObj.setMat4("pvMat", camera.getPVMat());
+	programObj.setMat4("modelMat", cubeModel.mm);
+
+	model.draw();
 }
 
 window.onresize = () => {

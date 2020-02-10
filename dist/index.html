@@ -81,7 +81,6 @@
 			}
 		</script>
 
-		<!--TODO:-->
 		<script type="x-shader/x-vertex" id="defer1V">
 			#version 300 es
 			layout(std140, column_major) uniform;
@@ -116,6 +115,64 @@
 			void main() {
 				fColor = vec4(texture(tex, vtexcoord).rgb, 1.0);
 				fPosW = vposW;
+			}
+		</script>
+
+		<script type="x-shader/x-vertex" id="objV">
+			#version 300 es
+			layout(std140, column_major) uniform;
+			precision mediump float;
+
+			layout (location = 0) in vec3 iposition;
+			layout (location = 1) in vec3 inormal;
+			layout (location = 2) in vec2 itexCoord;
+			layout (location = 3) in vec3 itangent;
+
+			out vec3 fragCoord;
+			out	vec3 normal;
+			out vec2 texCoord;
+
+			uniform mat4 pvMat;
+			uniform mat4 modelMat;
+
+			void main()
+			{
+			    gl_Position = pvMat * modelMat * vec4(iposition, 1.0);
+
+				// output
+				fragCoord = vec3(modelMat * vec4(iposition, 1.0));
+				normal = mat3(transpose(inverse(modelMat))) * inormal;
+				texCoord = itexCoord;
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="objF">
+			#version 300 es
+			precision mediump float;
+
+			in vec3 fragCoord;
+			in vec3 normal;
+			in vec2 texCoord;
+
+			out vec4 fragColor;
+
+			uniform int useTex;
+			uniform sampler2D tex;
+
+
+			void main()
+			{
+				if(useTex == 1)
+				{
+					vec3 texColor = texture(tex, texCoord).rgb;
+					//fragColor = vec4(texColor, 1.0);
+					fragColor = vec4(1.0, 1.0, 1.0, 1.0);
+				}
+				else
+				{
+					vec3 texColor = normalize(normal);
+					vec3 result = vec3(max(texColor.x, 0.0), max(texColor.y, 0.0), max(texColor.z, 0.0));
+					fragColor = vec4(result, 1.0);
+				}
 			}
 		</script>
 
