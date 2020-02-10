@@ -1,6 +1,7 @@
 import * as glm from "gl-matrix";
 import * as Stats from "stats-js";
 import * as Dat from "dat.gui";
+import * as Program from "./Program";
 
 // global variable
 var gl = window.WebGL2RenderingContext.prototype; // specify type for code snippet
@@ -16,21 +17,9 @@ var flag = {
 
 // -- program -- //
 
-var programOrigin = {
-	id: null,
-	umvp: null,
-	utex: null
-};
-var programWindow = {
-	id: null,
-	utex: null
-};
-var programDefer1 = {
-	id: null,
-	umvp: null,
-	um: null,
-	utex: null
-};
+var programOrigin = null;
+var programWindow = null;
+var programDefer1 = null;
 
 // -- Model -- //
 
@@ -290,41 +279,6 @@ function _loadFile(url) {
 	});
 }
 
-function createShader(vsID, fsID) {
-	// get shader string
-	let vsSrc = document.getElementById(vsID).innerText.trim();
-	let fsSrc = document.getElementById(fsID).innerText.trim();
-
-	// create vertex shader
-	let vs = gl.createShader(gl.VERTEX_SHADER);
-	gl.shaderSource(vs, vsSrc);
-	gl.compileShader(vs);
-
-	if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-		console.error(gl.getShaderInfoLog(vs));
-	}
-
-	// create fragment shader
-	let fs = gl.createShader(gl.FRAGMENT_SHADER);
-	gl.shaderSource(fs, fsSrc);
-	gl.compileShader(fs);
-
-	if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-		console.error(gl.getShaderInfoLog(fs));
-	}
-
-	// create shader program
-	const program = gl.createProgram();
-	gl.attachShader(program, vs);
-	gl.attachShader(program, fs);
-	gl.linkProgram(program);
-
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		console.error(gl.getProgramInfoLog(program));
-	}
-	return program;
-}
-
 // ------- END TOOLS -------- //
 
 // --------- INIT ----------- //
@@ -389,22 +343,10 @@ function initVar() {
 }
 
 function initProgram() {
-	// shader
-	programOrigin.id = createShader("vertex", "fragment");
-	programOrigin.umvp = gl.getUniformLocation(programOrigin.id, "mvp");
-	programOrigin.utex = gl.getUniformLocation(programOrigin.id, "tex");
-
-	//window program
-	programWindow.id = createShader("windowV", "windowF");
-	programWindow.utex = gl.getUniformLocation(programWindow.id, "tex");
-	gl.useProgram(programWindow.id);
-	gl.uniform1i(programWindow.utex, 0);
-
 	//  defer1
-	programDefer1.id = createShader("defer1V", "defer1F");
-	programDefer1.umvp = gl.getUniformLocation(programDefer1.id, "mvp");
-	programDefer1.um = gl.getUniformLocation(programDefer1.id, "m");
-	programDefer1.utex = gl.getUniformLocation(programDefer1.id, "tex");
+	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
+	programWindow = new Program.default(gl, "windowV", "windowF");
+	programOrigin = new Program.default(gl, "vertex", "fragment");
 }
 
 function initFBO() {
@@ -823,11 +765,9 @@ function render(delta, time) {
 	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
-	gl.uniform1i(programDefer1.utex, 0);
-	gl.uniformMatrix4fv(programDefer1.umvp, false, mvp);
-	gl.uniformMatrix4fv(programDefer1.um, false, cubeModel.mm);
+	programDefer1.setMat4("mvp", mvp);
+	programDefer1.setMat4("m", cubeModel.mm);
+	programDefer1.setTex("tex", cubeModel.atex, 0);
 
 	gl.bindVertexArray(cubeModel.vao);
 	gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
@@ -839,8 +779,7 @@ function render(delta, time) {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	gl.useProgram(programWindow.id);
-	gl.bindTexture(gl.TEXTURE_2D, Gbuffer.colorTex);
-	gl.uniform1i(programWindow.utex, 0);
+	programWindow.setTex("tex", Gbuffer.colorTex, 0);
 
 	gl.bindVertexArray(winModel.vao);
 	gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
