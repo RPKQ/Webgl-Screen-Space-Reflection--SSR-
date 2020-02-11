@@ -26,33 +26,6 @@
 		</style>
 	</head>
 	<body>
-		<script type="x-shader/x-vertex" id="vertex">
-			#version 300 es
-			precision mediump float;
-			layout(location = 0) in vec3 iPosition;
-			layout(location = 1) in vec2 iTexcoord;
-
-			out vec2 texcoord;
-			uniform mat4 mvp;
-
-			void main() {
-			gl_Position = mvp * vec4(iPosition, 1.0f);
-			texcoord = iTexcoord;
-			}
-		</script>
-		<script type="x-shader/x-fragment" id="fragment">
-			#version 300 es
-			precision mediump float;
-
-			out vec4 fFragColor;
-			in vec2 texcoord;
-			uniform sampler2D tex;
-
-			void main() {
-			fFragColor = vec4(texture(tex, texcoord).rgb, 1.0);
-			}
-		</script>
-
 		<script type="x-shader/x-vertex" id="windowV">
 			#version 300 es
 
@@ -164,8 +137,8 @@
 				if(useTex == 1)
 				{
 					vec3 texColor = texture(tex, texCoord).rgb;
-					//fragColor = vec4(texColor, 1.0);
-					fragColor = vec4(1.0, 1.0, 1.0, 1.0);
+					fragColor = vec4(texColor, 1.0);
+					//fragColor = vec4(1.0, 1.0, 1.0, 1.0);
 				}
 				else
 				{

@@ -8,6 +8,9 @@ export default class ObjModel {
 		this.vao = gl.createVertexArray();
 		this.indexCount = 0;
 
+		this.modelMat = glm.mat4.create();
+		this.tex = null;
+
 		this.v = [];
 		this.idx = [];
 		this.vn = [];
@@ -22,6 +25,7 @@ export default class ObjModel {
 	draw() {
 		gl.bindVertexArray(this.vao);
 		gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
+		gl.bindVertexArray(null);
 	}
 
 	async loadModel(url) {

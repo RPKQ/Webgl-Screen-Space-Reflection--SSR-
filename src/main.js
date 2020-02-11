@@ -19,7 +19,6 @@ var global = {
 // -- program -- //
 
 var programObj = null;
-var programCube = null;
 var programWindow = null;
 var programDefer1 = null;
 
@@ -30,12 +29,6 @@ var model = null;
 // -- Model -- //
 
 var winModel = null;
-
-var cubeModel = {
-	vao: null,
-	atex: null,
-	mm: null
-};
 
 // -- FBO -- //
 
@@ -49,6 +42,10 @@ var Gbuffer = {
 	posTex: null,
 	colorTex: null,
 	depthTex: null
+};
+
+var flag = {
+	useTex: true
 };
 
 var rrtex = null;
@@ -87,24 +84,21 @@ function initWebGL() {
 	// gui
 	gui = new Dat.GUI();
 	gui.domElement.classList.add("navbar");
-	let nmFolder = gui.addFolder("Normal");
-	// nmFolder.add(flag, "use").onChange(val => {
-	// 	gl.uniform1i(1, val);
-	// });
+	let nmFolder = gui.addFolder("toggles");
+	nmFolder.add(flag, "useTex").onChange(val => {
+		flag.useTex = val;
+	});
 	nmFolder.open();
 
 	// control
 }
 
 function initVar() {
-	// matrix
-	cubeModel.mm = glm.mat4.create();
-
 	// camera
 	camera = new Camera.default(
 		gl,
-		[1, 1, 0.5],
-		[0, 0, 0],
+		[5, 5, 2.5],
+		[4, 4, 2],
 		gl.drawingBufferWidth,
 		gl.drawingBufferHeight,
 		window
@@ -113,7 +107,6 @@ function initVar() {
 	// program
 	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
-	programCube = new Program.default(gl, "vertex", "fragment");
 	programObj = new Program.default(gl, "objV", "objF");
 
 	// winModel
@@ -260,201 +253,25 @@ function initGbuffer() {
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
-async function initModels() {
-	// cubeModel
-	cubeModel.vao = gl.createVertexArray();
-	gl.bindVertexArray(cubeModel.vao);
-
-	const positions = new Float32Array([
-		// Front face
-		-0.25,
-		-0.25,
-		0.25,
-		0.25,
-		-0.25,
-		0.25,
-		0.25,
-		0.25,
-		0.25,
-		-0.25,
-		0.25,
-		0.25,
-
-		// Back face
-		-0.25,
-		-0.25,
-		-0.25,
-		-0.25,
-		0.25,
-		-0.25,
-		0.25,
-		0.25,
-		-0.25,
-		0.25,
-		-0.25,
-		-0.25,
-
-		// Top face
-		-0.25,
-		0.25,
-		-0.25,
-		-0.25,
-		0.25,
-		0.25,
-		0.25,
-		0.25,
-		0.25,
-		0.25,
-		0.25,
-		-0.25,
-
-		// Bottom face
-		-0.25,
-		-0.25,
-		-0.25,
-		0.25,
-		-0.25,
-		-0.25,
-		0.25,
-		-0.25,
-		0.25,
-		-0.25,
-		-0.25,
-		0.25,
-
-		// Right face
-		0.25,
-		-0.25,
-		-0.25,
-		0.25,
-		0.25,
-		-0.25,
-		0.25,
-		0.25,
-		0.25,
-		0.25,
-		-0.25,
-		0.25,
-
-		// Left face
-		-0.25,
-		-0.25,
-		-0.25,
-		-0.25,
-		-0.25,
-		0.25,
-		-0.25,
-		0.25,
-		0.25,
-		-0.25,
-		0.25,
-		-0.25
-	]);
-	const texcoords = new Float32Array([
-		// Front
-		0.0,
-		0.0,
-		1.0,
-		0.0,
-		1.0,
-		1.0,
-		0.0,
-		1.0,
-		// Back
-		0.0,
-		0.0,
-		1.0,
-		0.0,
-		1.0,
-		1.0,
-		0.0,
-		1.0,
-		// Top
-		0.0,
-		0.0,
-		1.0,
-		0.0,
-		1.0,
-		1.0,
-		0.0,
-		1.0,
-		// Bottom
-		0.0,
-		0.0,
-		1.0,
-		0.0,
-		1.0,
-		1.0,
-		0.0,
-		1.0,
-		// Right
-		0.0,
-		0.0,
-		1.0,
-		0.0,
-		1.0,
-		1.0,
-		0.0,
-		1.0,
-		// Left
-		0.0,
-		0.0,
-		1.0,
-		0.0,
-		1.0,
-		1.0,
-		0.0,
-		1.0
-	]);
-	let vbo = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-	gl.bufferData(
-		gl.ARRAY_BUFFER,
-		positions.byteLength + texcoords.byteLength,
-		gl.STATIC_DRAW
-	);
-	gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
-	gl.bufferSubData(gl.ARRAY_BUFFER, positions.byteLength, texcoords);
-	gl.enableVertexAttribArray(0);
-	gl.enableVertexAttribArray(1);
-	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, positions.byteLength);
-
-	// cubeModel -- tex
-	let promises = [];
-	promises.push(loadImage("./asset/a.png"));
-	let results = await Promise.all(promises);
-
-	cubeModel.atex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, results[0]);
+function genTexture(image) {
+	let tex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, tex);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	return tex;
+}
 
-	// ASSIMP
-	// var scene = new THREE.Scene();
-	// var loader = new THREE.AssimpJSONLoader();
-	// //var group = new THREE.Object3D();
-
-	// loader.load("./asset/assimp/spider.obj.assimp.json", function(model) {
-	// 	console.log(model);
-
-	// 	model.traverse(function(child) {
-	// 		if (child instanceof THREE.Mesh) {
-	// 			// child.material = new THREE.MeshLambertMaterial({color:0xaaaaaa});
-	// 			console.log(child.geometry);
-	// 		}
-	// 	});
-
-	// 	model.scale.set(0.1, 0.1, 0.1);
-
-	// 	scene.add(model);
-	// });
+async function initModels() {
+	let promises = [];
+	promises.push(loadImage("./asset/ladybug_co.png"));
+	let results = await Promise.all(promises);
 
 	// obj
-	model = new ObjModel.default(gl, "./asset/ladybug.obj");
+	model = await new ObjModel.default(gl, "./asset/ladybug.obj");
+	model.tex = genTexture(results[0]);
 }
 
 // -------- END INIT ------- //
@@ -467,8 +284,6 @@ function animate(time) {
 	let delta = time - global.start;
 	global.start = time;
 
-	// glm.mat4.rotate(cubeModel.mm, cubeModel.mm, delta / 500.0, [0.25, 1.0, 0.5]);
-
 	stats.update();
 
 	render(delta, time);
@@ -480,47 +295,35 @@ function render(delta, time) {
 	// set uniform
 	let mvp = glm.mat4.create();
 	glm.mat4.multiply(mvp, camera.pMat, camera.vMat);
-	glm.mat4.multiply(mvp, mvp, cubeModel.mm);
+	glm.mat4.multiply(mvp, mvp, model.modelMat);
 
-	// gl.useProgram(programCube.id);
-	// gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	// draw to fbo
+	// gl.useProgram(programDefer1.id);
+	// gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
 	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	// gl.activeTexture(gl.TEXTURE0);
-	// gl.bindTexture(gl.TEXTURE_2D, cubeModel.atex);
-	// gl.uniform1i(programCube.utex, 0);
-	// gl.uniformMatrix4fv(programCube.umvp, false, mvp);
+	// programDefer1.setMat4("mvp", mvp);
+	// programDefer1.setMat4("m", cubeModel.mm);
+	// programDefer1.setTex("tex", cubeModel.atex, 0);
 
 	// gl.bindVertexArray(cubeModel.vao);
 	// gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
 
-	// draw to fbo
-	gl.useProgram(programDefer1.id);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-	programDefer1.setMat4("mvp", mvp);
-	programDefer1.setMat4("m", cubeModel.mm);
-	programDefer1.setTex("tex", cubeModel.atex, 0);
-
-	gl.bindVertexArray(cubeModel.vao);
-	gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
-
-	// draw to screen
+	// // draw to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);
+	gl.clearColor(1.0, 1.0, 1.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(programWindow.id);
-	programWindow.setTex("tex", Gbuffer.colorTex, 0);
+	// gl.useProgram(programWindow.id);
+	// programWindow.setTex("tex", model.tex, 0);
 
-	winModel.draw();
+	// winModel.draw();
 
-	// gl.useProgram(programObj.id);
-	// programObj.setInt("useTex", 1);
-	// programObj.setTex("tex", cubeModel.atex, 0);
-	// programObj.setMat4("pvMat", camera.getPVMat());
-	// programObj.setMat4("modelMat", cubeModel.mm);
+	gl.useProgram(programObj.id);
+	programObj.setInt("useTex", flag.useTex);
+	programObj.setTex("tex", model.tex, 0);
+	programObj.setMat4("pvMat", camera.getPVMat());
+	programObj.setMat4("modelMat", model.modelMat);
 
 	model.draw();
 }

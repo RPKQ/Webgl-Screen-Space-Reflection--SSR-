@@ -63,6 +63,10 @@ export default class Camera {
 					self.pos[1] += self.speed;
 					self.center[1] += self.speed;
 					break;
+				case "t":
+					console.log(`pos: ${self.pos}`);
+					console.log(`center: ${self.center}`);
+					break;
 			}
 
 			glm.mat4.lookAt(self.vMat, self.pos, self.center, [0, 1, 0]);
@@ -142,7 +146,7 @@ export default class Camera {
 
 	getPVMat() {
 		let a = glm.mat4.create();
-		glm.mat4.mul(a, this.vMat, this.pMat);
+		glm.mat4.mul(a, this.pMat, this.vMat);
 		return a;
 	}
 
