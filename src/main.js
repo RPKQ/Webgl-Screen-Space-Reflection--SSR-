@@ -97,8 +97,8 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[5, 5, 2.5],
-		[4, 4, 2],
+		[0, 30, 0],
+		[0, 30, 1],
 		gl.drawingBufferWidth,
 		gl.drawingBufferHeight,
 		window
@@ -270,7 +270,7 @@ async function initModels() {
 	let results = await Promise.all(promises);
 
 	// obj
-	model = await new ObjModel.default(gl, "./asset/nanosuit.obj");
+	model = await new ObjModel.default(gl, "./asset/crytek/sponza.obj");
 	model.tex = genTexture(results[0]);
 }
 
