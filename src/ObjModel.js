@@ -1,5 +1,5 @@
 import * as glm from "gl-matrix";
-import { _loadFile } from "./utils";
+import { _loadFile, loadImage } from "./utils";
 
 var gl = null;
 export default class ObjModel {
@@ -11,6 +11,7 @@ export default class ObjModel {
 		this.v = [];
 		this.vn = [];
 		this.vt = [];
+		this.mtl = [];
 		this.idxs = [];
 		this.idxs_t = [];
 		this.idxs_n = [];
@@ -24,6 +25,8 @@ export default class ObjModel {
 		this.modelMat = glm.mat4.create();
 
 		this.loadModel(url);
+
+		this.loadMaterial(url);
 	}
 
 	async draw() {
@@ -31,6 +34,7 @@ export default class ObjModel {
 		for (let i = 0; i < this.ebos.length; i++) {
 			let ebo = this.ebos[i];
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
+			gl.bindTexture(gl.TEXTURE_2D, this.mtl[this.usemtl[i]]);
 			await gl.drawElements(
 				gl.TRIANGLES,
 				this.indexCounts[i],
@@ -39,6 +43,42 @@ export default class ObjModel {
 			);
 		}
 		gl.bindVertexArray(null);
+	}
+
+	async loadMaterial(url) {
+		// get mtl filename
+		let mtlurl = url.slice(0, -3) + "mtl";
+		let parentFolder = url.substring(0, url.lastIndexOf("/") + 1);
+		console.log(parentFolder);
+
+		let lines = await _loadFile(mtlurl);
+
+		let name = null;
+		for (let line of lines) {
+			line = line.split(" ");
+			if (line[0] == "newmtl") name = line[1];
+			else if (line[0] == "map_Kd") {
+				let image = await loadImage(parentFolder + line[1]);
+				if (image) {
+					console.log(`Load image ${parentFolder + line[1]}`);
+					let tex = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, tex);
+					gl.texImage2D(
+						gl.TEXTURE_2D,
+						0,
+						gl.RGB,
+						gl.RGB,
+						gl.UNSIGNED_BYTE,
+						image
+					);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_REPEAT);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_REPEAT);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+					this.mtl[name] = tex;
+				} else console.log(`Fail to load image ${parentFolder + line[1]}`);
+			}
+		}
 	}
 
 	async loadModel(url) {
