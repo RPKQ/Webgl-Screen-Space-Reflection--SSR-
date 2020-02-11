@@ -5,28 +5,40 @@ var gl = null;
 export default class ObjModel {
 	constructor(Gl, url) {
 		gl = Gl;
-		this.vaos = [];
+		this.vao = null;
+
+		// global data
+		this.v = [];
+		this.vn = [];
+		this.vt = [];
+		this.idxs = [];
+		this.idxs_t = [];
+		this.idxs_n = [];
+
+		// local data
+		this.ebos = [];
 		this.name = [];
 		this.indexCounts = [];
 		this.usemtl = [];
 
 		this.modelMat = glm.mat4.create();
-		this.tex = null;
 
 		this.loadModel(url);
 	}
 
 	async draw() {
-		for (let i = 0; i < this.vaos.length; i++) {
-			gl.bindVertexArray(this.vaos[i]);
+		gl.bindVertexArray(this.vao);
+		for (let i = 0; i < this.ebos.length; i++) {
+			let ebo = this.ebos[i];
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
 			await gl.drawElements(
 				gl.TRIANGLES,
 				this.indexCounts[i],
 				gl.UNSIGNED_INT,
 				0
 			);
-			gl.bindVertexArray(null);
 		}
+		gl.bindVertexArray(null);
 	}
 
 	async loadModel(url) {
@@ -34,11 +46,6 @@ export default class ObjModel {
 		let lines = await _loadFile(url);
 
 		this.idx = [];
-		this.idx_t = [];
-		this.idx_n = [];
-		this.v = [];
-		this.vn = [];
-		this.vt = [];
 
 		let firstAccess = true;
 
@@ -63,64 +70,61 @@ export default class ObjModel {
 				this.idx.push(parseInt(line[1].split("/")[0]) - 1);
 				this.idx.push(parseInt(line[2].split("/")[0]) - 1);
 				this.idx.push(parseInt(line[3].split("/")[0]) - 1);
+				this.idxs.push(parseInt(line[1].split("/")[0]) - 1);
+				this.idxs.push(parseInt(line[2].split("/")[0]) - 1);
+				this.idxs.push(parseInt(line[3].split("/")[0]) - 1);
 				if (line[1].split("/")[1]) {
-					this.idx_t.push(parseInt(line[1].split("/")[1]) - 1);
-					this.idx_t.push(parseInt(line[2].split("/")[1]) - 1);
-					this.idx_t.push(parseInt(line[3].split("/")[1]) - 1);
+					this.idxs_t.push(parseInt(line[1].split("/")[1]) - 1);
+					this.idxs_t.push(parseInt(line[2].split("/")[1]) - 1);
+					this.idxs_t.push(parseInt(line[3].split("/")[1]) - 1);
 				} else {
-					this.idx_t.push(parseInt(0));
-					this.idx_t.push(parseInt(0));
-					this.idx_t.push(parseInt(0));
+					this.idxs_t.push(parseInt(0));
+					this.idxs_t.push(parseInt(0));
+					this.idxs_t.push(parseInt(0));
 				}
-				this.idx_n.push(parseInt(line[1].split("/")[2]) - 1);
-				this.idx_n.push(parseInt(line[2].split("/")[2]) - 1);
-				this.idx_n.push(parseInt(line[3].split("/")[2]) - 1);
+				this.idxs_n.push(parseInt(line[1].split("/")[2]) - 1);
+				this.idxs_n.push(parseInt(line[2].split("/")[2]) - 1);
+				this.idxs_n.push(parseInt(line[3].split("/")[2]) - 1);
 			} else if (line[0] == "usemtl") {
 				if (line[1] == "0") this.usemtl.push(null);
 				else this.usemtl.push(line[1]);
 			} else if (line[0] == "o") {
 				if (!firstAccess) {
+					await this.buildEbo();
 					this.indexCounts.push(this.idx.length);
-					await this.buildModel();
 					this.idx = [];
-					this.idx_n = [];
-					this.idx_t = [];
-					this.v = [];
-					this.vn = [];
-					this.vt = [];
 				}
 				firstAccess = false;
 				this.name.push(line[1]);
 			}
 		}
 
-		await this.buildModel();
+		await this.buildEbo();
 		this.indexCounts.push(this.idx.length);
 		this.idx = [];
-		this.idx_n = [];
-		this.idx_t = [];
-		this.v = [];
-		this.vn = [];
-		this.vt = [];
+
+		this.buildModel();
+	}
+
+	buildEbo() {
+		console.log(`Build a mesh with ${this.idx.length} vertices`);
+		let indices = new Uint32Array(this.idx);
+		let ebo = gl.createBuffer();
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+		this.ebos.push(ebo);
 	}
 
 	buildModel() {
-		console.log(
-			`Build a mesh with ${this.v.length} vertices, ${this.vn.length} normals, ` +
-				`${this.vt.length} UV , ${this.idx.length} indices, ${this.idx_n.length} normal indices, ` +
-				`${this.idx_t.length} UV indices`
-		);
 		// --- convert the data with ebo --- //
 		let vn_order = new Array(this.v.length);
 		let vt_order = new Array((this.v.length / 3) * 2);
-		console.log(vn_order.length);
-		console.log(vt_order.length);
 
-		for (let i = 0; i < this.idx.length; i++) {
-			let vid = this.idx[i];
+		for (let i = 0; i < this.idxs.length; i++) {
+			let vid = this.idxs[i];
 			if (vid > this.v.length) console.error(vid);
-			let UVid = this.idx_t[i];
-			let nid = this.idx_n[i];
+			let UVid = this.idxs_t[i];
+			let nid = this.idxs_n[i];
 			vt_order[vid * 2] = this.vt[UVid * 2];
 			vt_order[vid * 2 + 1] = this.vt[UVid * 2 + 1];
 			vn_order[vid * 3] = this.vn[nid * 3];
@@ -137,9 +141,8 @@ export default class ObjModel {
 		vn_order = [];
 
 		// vao
-		let vao = gl.createVertexArray();
-		gl.bindVertexArray(vao);
-		this.vaos.push(vao);
+		this.vao = gl.createVertexArray();
+		gl.bindVertexArray(this.vao);
 
 		// vbo
 		let positions = new Float32Array(this.v);
@@ -175,16 +178,6 @@ export default class ObjModel {
 		);
 		gl.enableVertexAttribArray(2);
 
-		// ebo
-		let indices = new Uint32Array(this.idx);
-		let ebo = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-
 		gl.bindVertexArray(null);
-		console.log(
-			`Order a mesh with ${this.v.length} vertices, ${this.vn.length} normals, ` +
-				`${this.vt.length} UV , ${this.idx.length} indices`
-		);
 	}
 }

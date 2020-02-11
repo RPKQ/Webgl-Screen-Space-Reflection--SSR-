@@ -270,7 +270,7 @@ async function initModels() {
 	let results = await Promise.all(promises);
 
 	// obj
-	model = await new ObjModel.default(gl, "./asset/dragon.obj");
+	model = await new ObjModel.default(gl, "./asset/nanosuit.obj");
 	model.tex = genTexture(results[0]);
 }
 
