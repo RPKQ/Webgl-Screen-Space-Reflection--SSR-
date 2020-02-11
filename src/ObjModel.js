@@ -5,40 +5,35 @@ var gl = null;
 export default class ObjModel {
 	constructor(Gl, url) {
 		gl = Gl;
-		this.vao = gl.createVertexArray();
-		this.indexCount = 0;
+		this.vaos = [];
+		this.name = [];
+		this.indexCounts = [];
+		this.usemtl = [];
 
 		this.modelMat = glm.mat4.create();
 		this.tex = null;
 
-		this.v = [];
-		this.idx = [];
-		this.vn = [];
-		this.vt = [];
-
 		this.loadModel(url);
 	}
 
-	draw() {
-		gl.bindVertexArray(this.vao);
-		gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
-		gl.bindVertexArray(null);
+	async draw() {
+		for (let i = 0; i < this.vaos.length; i++) {
+			gl.bindVertexArray(this.vaos[i]);
+			gl.drawElements(gl.TRIANGLES, this.indexCounts[i], gl.UNSIGNED_INT, 0);
+			gl.bindVertexArray(null);
+		}
 	}
 
 	async loadModel(url) {
-		await this.parseData(url);
-		// stats
-		console.log(
-			`Load ${url}: ${this.v.length} vertices, ${this.vt.length} texcoords, ${this.vn.length} normals ` +
-				` ${this.idx.length / 3} faces`
-		);
-		this.indexCount = this.idx.length;
-		this.buildModel(url);
-	}
-
-	async parseData(url) {
 		// read file
 		let lines = await _loadFile(url);
+
+		this.idx = [];
+		this.v = [];
+		this.vn = [];
+		this.vt = [];
+
+		let firstAccess = true;
 
 		// parse obj format
 		for (let line of lines) {
@@ -61,13 +56,36 @@ export default class ObjModel {
 				this.idx.push(parseInt(line[1].split("/")[0]) - 1);
 				this.idx.push(parseInt(line[2].split("/")[0]) - 1);
 				this.idx.push(parseInt(line[3].split("/")[0]) - 1);
+			} else if (line[0] == "usemtl") {
+				if (line[1] == "0") this.usemtl.push(null);
+				else this.usemtl.push(line[1]);
+			} else if (line[0] == "o") {
+				if (!firstAccess) {
+					this.indexCounts.push(this.idx.length);
+					await this.buildModel();
+					this.idx = [];
+					this.v = [];
+					this.vn = [];
+					this.vt = [];
+				}
+				firstAccess = false;
+				this.name.push(line[1]);
 			}
 		}
+
+		await this.buildModel();
+		this.indexCounts.push(this.idx.length);
+		this.idx = [];
+		this.v = [];
+		this.vn = [];
+		this.vt = [];
 	}
 
-	buildModel(url) {
+	buildModel() {
 		// vao
-		gl.bindVertexArray(this.vao);
+		let vao = gl.createVertexArray();
+		gl.bindVertexArray(vao);
+		this.vaos.push(vao);
 
 		// vbo
 		let positions = new Float32Array(this.v);
@@ -110,5 +128,9 @@ export default class ObjModel {
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
 		gl.bindVertexArray(null);
+		console.log(
+			`Build a mesh with ${this.v.length} vertices, ${this.vn.length} normals, ` +
+				`${this.vt.length} UV , ${this.idx.length} indices`
+		);
 	}
 }
