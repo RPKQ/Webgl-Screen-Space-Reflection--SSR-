@@ -25,9 +25,8 @@ var programDefer1 = null;
 
 var camera = null;
 
-var model = null;
-
-// -- Model -- //
+var dragonModel = null;
+var sponzaModel = null;
 
 var winModel = null;
 
@@ -41,7 +40,7 @@ var fbo = {
 var gbuffer = null;
 
 var flag = {
-	useTex: true
+	useTex: false
 };
 
 var rrtex = null;
@@ -198,8 +197,19 @@ async function initModels() {
 	let results = await Promise.all(promises);
 
 	// obj
-	model = await new ObjModel.default(gl, "./asset/crytek/sponza.obj");
-	model.tex = genTexture(results[0]);
+	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programObj);
+	dragonModel.loadModel();
+
+	sponzaModel = new ObjModel.default(
+		gl,
+		"./asset/crytek/sponza.obj",
+		programObj
+	);
+	new Promise((resolve, reject) => {
+		resolve(sponzaModel.loadModel());
+	}).then(() => {
+		sponzaModel.loadMaterial();
+	});
 }
 
 // -------- END INIT ------- //
@@ -223,7 +233,7 @@ function render(delta, time) {
 	// set uniform
 	let mvp = glm.mat4.create();
 	glm.mat4.multiply(mvp, camera.pMat, camera.vMat);
-	glm.mat4.multiply(mvp, mvp, model.modelMat);
+	glm.mat4.multiply(mvp, mvp, dragonModel.modelMat);
 
 	// draw to fbo
 	// gl.useProgram(programDefer1.id);
@@ -243,17 +253,16 @@ function render(delta, time) {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	// gl.useProgram(programWindow.id);
-	// programWindow.setTex("tex", model.tex, 0);
+	// programWindow.setTex("tex", dragonModel.tex, 0);
 
 	// winModel.draw();
 
 	gl.useProgram(programObj.id);
-	programObj.setInt("useTex", flag.useTex);
-	programObj.setTex("tex", model.tex, 0);
 	programObj.setMat4("pvMat", camera.getPVMat());
-	programObj.setMat4("modelMat", model.modelMat);
+	programObj.setMat4("modelMat", dragonModel.modelMat);
 
-	model.draw();
+	sponzaModel.draw(flag.useTex);
+	dragonModel.draw(flag.useTex);
 }
 
 window.onresize = () => {

@@ -3,9 +3,13 @@ import { _loadFile, loadImage } from "./utils";
 
 var gl = null;
 export default class ObjModel {
-	constructor(Gl, url) {
+	constructor(Gl, url, program) {
 		gl = Gl;
+		this.url = url;
+
 		this.vao = null;
+		this.program = program;
+		this.fakeTex = null;
 
 		// global data
 		this.v = [];
@@ -23,67 +27,62 @@ export default class ObjModel {
 		this.usemtl = [];
 
 		this.modelMat = glm.mat4.create();
-
-		this.loadModel(url);
-
-		this.loadMaterial(url);
 	}
 
-	async draw() {
+	async draw(useTex) {
 		gl.bindVertexArray(this.vao);
 		for (let i = 0; i < this.ebos.length; i++) {
+			if (!this.usemtl[i]) {
+				this.program.setInt("useTex", false);
+			} else {
+				this.program.setInt("useTex", useTex);
+				this.program.setTex("tex", this.mtl[this.usemtl[i]], 0);
+			}
 			let ebo = this.ebos[i];
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
-			gl.bindTexture(gl.TEXTURE_2D, this.mtl[this.usemtl[i]]);
-			await gl.drawElements(
-				gl.TRIANGLES,
-				this.indexCounts[i],
-				gl.UNSIGNED_INT,
-				0
-			);
+			gl.drawElements(gl.TRIANGLES, this.indexCounts[i], gl.UNSIGNED_INT, 0);
 		}
 		gl.bindVertexArray(null);
 	}
 
-	async loadMaterial(url) {
+	async genTexture(url) {
+		let image = await loadImage(url);
+		if (image) {
+			console.log(`Load image ${url}`);
+			let tex = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, tex);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_REPEAT);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_REPEAT);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			return tex;
+		} else return null;
+	}
+
+	async loadMaterial() {
 		// get mtl filename
-		let mtlurl = url.slice(0, -3) + "mtl";
-		let parentFolder = url.substring(0, url.lastIndexOf("/") + 1);
+		let mtlurl = this.url.slice(0, -3) + "mtl";
+		let parentFolder = this.url.substring(0, this.url.lastIndexOf("/") + 1);
 		console.log(parentFolder);
 
-		let lines = await _loadFile(mtlurl);
-
-		let name = null;
-		for (let line of lines) {
-			line = line.split(" ");
-			if (line[0] == "newmtl") name = line[1];
-			else if (line[0] == "map_Kd") {
-				let image = await loadImage(parentFolder + line[1]);
-				if (image) {
-					console.log(`Load image ${parentFolder + line[1]}`);
-					let tex = gl.createTexture();
-					gl.bindTexture(gl.TEXTURE_2D, tex);
-					gl.texImage2D(
-						gl.TEXTURE_2D,
-						0,
-						gl.RGB,
-						gl.RGB,
-						gl.UNSIGNED_BYTE,
-						image
-					);
-					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_REPEAT);
-					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_REPEAT);
-					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-					this.mtl[name] = tex;
-				} else console.log(`Fail to load image ${parentFolder + line[1]}`);
+		try {
+			let lines = await _loadFile(mtlurl);
+			let name = null;
+			for (let line of lines) {
+				line = line.split(" ");
+				if (line[0] == "newmtl") name = line[1];
+				else if (line[0] == "map_Kd")
+					this.mtl[name] = await this.genTexture(parentFolder + line[1]);
 			}
+		} catch (e) {
+			console.log(e);
 		}
 	}
 
-	async loadModel(url) {
+	async loadModel() {
 		// read file
-		let lines = await _loadFile(url);
+		let lines = await _loadFile(this.url);
 
 		this.idx = [];
 
@@ -126,8 +125,9 @@ export default class ObjModel {
 				this.idxs_n.push(parseInt(line[2].split("/")[2]) - 1);
 				this.idxs_n.push(parseInt(line[3].split("/")[2]) - 1);
 			} else if (line[0] == "usemtl") {
-				if (line[1] == "0") this.usemtl.push(null);
-				else this.usemtl.push(line[1]);
+				if (line[1] == "0") {
+					this.usemtl.push(null);
+				} else this.usemtl.push(line[1]);
 			} else if (line[0] == "o") {
 				if (!firstAccess) {
 					await this.buildEbo();
