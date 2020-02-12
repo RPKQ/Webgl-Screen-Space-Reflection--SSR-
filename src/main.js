@@ -5,6 +5,7 @@ import * as Program from "./Program";
 import * as Camera from "./Camera";
 import * as WinModel from "./WinModel";
 import * as ObjModel from "./ObjModel";
+import * as Gbuffer from "./Gbuffer";
 import { loadImage, _loadFile } from "./utils";
 
 // global variable
@@ -37,12 +38,7 @@ var fbo = {
 	tex: null,
 	rbo: null
 };
-var Gbuffer = {
-	id: null,
-	posTex: null,
-	colorTex: null,
-	depthTex: null
-};
+var gbuffer = null;
 
 var flag = {
 	useTex: true
@@ -50,7 +46,20 @@ var flag = {
 
 var rrtex = null;
 
-// --------- INIT ----------- //
+// --------- TOOL ----------- //
+
+function genTexture(image) {
+	let tex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, tex);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	return tex;
+}
+
+// --------- TOOL END ----------- //
 
 function initWebGL() {
 	global.canvas = document.createElement("canvas");
@@ -111,6 +120,9 @@ function initVar() {
 
 	// winModel
 	winModel = new WinModel.default(gl);
+
+	// FBO
+	gbuffer = new Gbuffer.default(gl);
 }
 
 function initFBO() {
@@ -180,90 +192,6 @@ function initFBO() {
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 }
 
-function genGbufferTex(fbo, target) {
-	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-
-	let tex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, tex);
-	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texStorage2D(
-		gl.TEXTURE_2D,
-		1,
-		gl.RGBA16F,
-		gl.drawingBufferWidth,
-		gl.drawingBufferHeight
-	);
-	gl.framebufferTexture2D(
-		gl.FRAMEBUFFER,
-		gl.COLOR_ATTACHMENT0 + target,
-		gl.TEXTURE_2D,
-		tex,
-		0
-	);
-
-	return tex;
-}
-
-function initGbuffer() {
-	// delete old
-
-	if (Gbuffer.id) gl.deleteFramebuffer(Gbuffer.id);
-	if (Gbuffer.posTex) gl.deleteTexture(Gbuffer.posTex);
-	if (Gbuffer.colorTex) gl.deleteTexture(Gbuffer.colorTex);
-
-	// FBO
-	Gbuffer.id = gl.createFramebuffer();
-	gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
-
-	// color attachments
-	gl.activeTexture(gl.TEXTURE0);
-
-	Gbuffer.posTex = genGbufferTex(Gbuffer.id, 0);
-	Gbuffer.colorTex = genGbufferTex(Gbuffer.id, 1);
-
-	gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
-
-	// depth attachment
-	Gbuffer.depthTex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, Gbuffer.depthTex);
-	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texStorage2D(
-		gl.TEXTURE_2D,
-		1,
-		gl.DEPTH_COMPONENT16,
-		gl.drawingBufferWidth,
-		gl.drawingBufferHeight
-	);
-	gl.framebufferTexture2D(
-		gl.FRAMEBUFFER,
-		gl.DEPTH_ATTACHMENT,
-		gl.TEXTURE_2D,
-		Gbuffer.depthTex,
-		0
-	);
-
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-}
-
-function genTexture(image) {
-	let tex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, tex);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	return tex;
-}
-
 async function initModels() {
 	let promises = [];
 	promises.push(loadImage("./asset/ladybug_co.png"));
@@ -299,7 +227,7 @@ function render(delta, time) {
 
 	// draw to fbo
 	// gl.useProgram(programDefer1.id);
-	// gl.bindFramebuffer(gl.FRAMEBUFFER, Gbuffer.id);
+	// gl.bindFramebuffer(gl.FRAMEBUFFER, gbuffer.id);
 	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	// programDefer1.setMat4("mvp", mvp);
@@ -344,7 +272,6 @@ window.onload = () => {
 	initWebGL();
 	initVar();
 	initFBO();
-	initGbuffer();
 	initModels().then(() => {
 		// rendering loop
 		window.requestAnimationFrame(animate);
