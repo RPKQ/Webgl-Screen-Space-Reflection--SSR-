@@ -27,6 +27,7 @@ var camera = null;
 
 var dragonModel = null;
 var sponzaModel = null;
+var sphereModel = null;
 
 var winModel = null;
 
@@ -105,8 +106,8 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[0, 30, 0],
-		[0, 30, 1],
+		[0, 2, -10],
+		[0, 0, 0],
 		gl.drawingBufferWidth,
 		gl.drawingBufferHeight,
 		window
@@ -191,25 +192,31 @@ function initFBO() {
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 }
 
-async function initModels() {
-	let promises = [];
-	promises.push(loadImage("./asset/ladybug_co.png"));
-	let results = await Promise.all(promises);
+async function loadAssets() {
+	// texs
+	// let promises = [];
+	// promises.push(loadImage("./asset/ladybug_co.png"));
+	// let results = await Promise.all(promises);
 
-	// obj
-	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programObj);
-	dragonModel.loadModel();
+	// dragon
+	// dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programObj);
+	// dragonModel.loadModel();
 
-	sponzaModel = new ObjModel.default(
-		gl,
-		"./asset/crytek/sponza.obj",
-		programObj
-	);
-	new Promise((resolve, reject) => {
-		resolve(sponzaModel.loadModel());
-	}).then(() => {
-		sponzaModel.loadMaterial();
-	});
+	// sponza
+	// sponzaModel = new ObjModel.default(
+	// 	gl,
+	// 	"./asset/crytek/sponza.obj",
+	// 	programObj
+	// );
+	// new Promise((resolve, reject) => {
+	// 	resolve(sponzaModel.loadModel());
+	// }).then(() => {
+	// 	sponzaModel.loadMaterial();
+	// });
+
+	//sphere
+	sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programObj);
+	sphereModel.loadModel();
 }
 
 // -------- END INIT ------- //
@@ -233,7 +240,7 @@ function render(delta, time) {
 	// set uniform
 	let mvp = glm.mat4.create();
 	glm.mat4.multiply(mvp, camera.pMat, camera.vMat);
-	glm.mat4.multiply(mvp, mvp, dragonModel.modelMat);
+	glm.mat4.multiply(mvp, mvp, sphereModel.modelMat);
 
 	// draw to fbo
 	// gl.useProgram(programDefer1.id);
@@ -259,10 +266,24 @@ function render(delta, time) {
 
 	gl.useProgram(programObj.id);
 	programObj.setMat4("pvMat", camera.getPVMat());
-	programObj.setMat4("modelMat", dragonModel.modelMat);
 
-	sponzaModel.draw(flag.useTex);
-	dragonModel.draw(flag.useTex);
+	// sponzaModel.draw(flag.useTex);
+	// dragonModel.draw(flag.useTex);
+	sphereModel.setPos([5, 7, 5]);
+	programObj.setMat4("modelMat", sphereModel.modelMat);
+	sphereModel.draw(false);
+
+	sphereModel.setPos([-0.5, 0, 0]);
+	programObj.setMat4("modelMat", sphereModel.modelMat);
+	sphereModel.draw(false);
+
+	sphereModel.setPos([0, -5, 2.5]);
+	programObj.setMat4("modelMat", sphereModel.modelMat);
+	sphereModel.draw(false);
+
+	sphereModel.setPos([-5, 2.5, 0]);
+	programObj.setMat4("modelMat", sphereModel.modelMat);
+	sphereModel.draw(false);
 }
 
 window.onresize = () => {
@@ -281,7 +302,7 @@ window.onload = () => {
 	initWebGL();
 	initVar();
 	initFBO();
-	initModels().then(() => {
+	loadAssets().then(() => {
 		// rendering loop
 		window.requestAnimationFrame(animate);
 	});

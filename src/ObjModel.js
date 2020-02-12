@@ -27,6 +27,13 @@ export default class ObjModel {
 		this.usemtl = [];
 
 		this.modelMat = glm.mat4.create();
+		this.pos = glm.vec3.clone([0, 0, 0]);
+	}
+
+	setPos(pos) {
+		let a = glm.mat4.create();
+		glm.vec3.copy(this.pos, pos);
+		glm.mat4.translate(this.modelMat, a, pos);
 	}
 
 	async draw(useTex) {
