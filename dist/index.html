@@ -79,8 +79,8 @@
 			    gl_Position = pvMat * mMat * vec4(iposition, 1.0);
 
 				// output
-				vnormal = vec3(mMat * vec4(inormal, 1.0));
-				vnormalV = vec3(vMat * mMat * vec4(inormal, 1.0));
+				vnormal = mat3(transpose(inverse(mMat))) *inormal;
+				vnormalV = vec3(vMat * vec4(mat3(transpose(inverse(mMat))) * inormal, 1.0));
 				vposV = vec3(vMat * mMat * vec4(iposition, 1.0));
 				vtexCoord = itexCoord;
 				vreflect = reflect;
@@ -137,6 +137,7 @@
 				vtexCoord = iTexcoord;
 			}
 		</script>
+
 		<script type="x-shader/x-fragment" id="defer2F">
 			#version 300 es
 			precision highp float;
@@ -150,9 +151,80 @@
 			uniform sampler2D colorTex;
 			uniform sampler2D posVTex;
 
+			uniform mat4 pMat;
+			uniform mat4 invpMat;
+			uniform mat4 invvMat;
+
+			uniform vec2 mousePos;
+			uniform vec2 winSize;
+
+			const float strideSize = 1.0;
+			const int max_steps = 30;
+			const float minRayStep = 0.1;
+
+			vec3 rayMarch(vec3 reflectDir, vec3 viewPos);
+			vec2 cam2screen(vec3 camVec);
+
 			void main() {
+				float doReflect = texture(reflectTex, vtexCoord).x;
 				vec3 color = texture(colorTex, vtexCoord).rgb;
-				fFragColor = vec4(color, 1.0);
+
+				if(doReflect == 0.0)
+				{
+					fFragColor = vec4(color, 1.0);
+				}
+				else if(doReflect == 0.5)
+				{
+					vec3 viewNormal = vec3(texture(normalVTex, vtexCoord) * invvMat);
+					vec3 viewPos = texture(posVTex, vtexCoord).xyz;
+
+					vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
+					vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
+
+					fFragColor = texture(colorTex, hitScreenPos.xy);
+				}
+				else
+				{
+					fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
+				}
+
+			}
+
+			vec3 rayMarch(vec3 reflectDir, vec3 viewPos)
+			{
+				vec3 curPos = viewPos;
+				vec3 stride = strideSize * reflectDir;
+				vec2 curScreenPos;
+				float depth;
+				float dDepth;
+
+				for(int i=0; i<max_steps; i++)
+				{
+					curPos += stride;
+					curScreenPos = cam2screen(curPos);
+					depth = texture(depthTex, curScreenPos).z;
+
+					dDepth = curPos.z - depth;
+
+					if((stride.z - dDepth) < 1.2)
+					{
+						// if hit
+						if(dDepth <= 0.0)
+						{
+							return vec3(curScreenPos, depth);
+						}
+					}
+				}
+
+				return vec3(curScreenPos, depth);
+			}
+
+			vec2 cam2screen(vec3 camVec)
+			{
+				vec4 projectedCoord = pMat * vec4(camVec, 1.0);
+				projectedCoord.xy /= projectedCoord.w;
+				projectedCoord.xy = projectedCoord.xy * 0.5 + 0.5;
+				return projectedCoord.xy;
 			}
 		</script>
 
@@ -170,15 +242,15 @@
 			out vec2 texCoord;
 
 			uniform mat4 pvMat;
-			uniform mat4 modelMat;
+			uniform mat4 mMat;
 
 			void main()
 			{
-			    gl_Position = pvMat * modelMat * vec4(iposition, 1.0);
+			    gl_Position = pvMat * mMat * vec4(iposition, 1.0);
 
 				// output
-				fragCoord = vec3(modelMat * vec4(iposition, 1.0));
-				normal = mat3(transpose(inverse(modelMat))) * inormal;
+				fragCoord = vec3(mMat * vec4(iposition, 1.0));
+				normal = mat3(transpose(inverse(mMat))) * inormal;
 				texCoord = itexCoord;
 			}
 		</script>

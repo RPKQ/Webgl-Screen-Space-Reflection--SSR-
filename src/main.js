@@ -136,10 +136,9 @@ async function loadAssets() {
 	rrtex = genTexture(results[0]);
 
 	// dragon
-	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
+	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programObj);
 	dragonModel.loadModel();
-	dragonModel.setPos([0, 5, 0]);
-	dragonModel.setScale([0.5, 0.5, 0.5]);
+	// dragonModel.setSc_Pos([0.5, 0.5, 0.5], [0, 5, 0]);
 
 	// // sponza
 	// sponzaModel = new ObjModel.default(
@@ -161,7 +160,7 @@ async function loadAssets() {
 	// quad
 	quadModel = new ObjModel.default(gl, "./asset/quad.obj", programDefer1);
 	quadModel.loadModel();
-	quadModel.setScale([10, 10, 10]);
+	quadModel.setSc_Pos([10, 10, 10], [0, 0, 0]);
 }
 
 // -------- END INIT ------- //
@@ -195,7 +194,7 @@ function render(delta, time) {
 	dragonModel.draw(flag.useTex);
 
 	// quad
-	programDefer1.setFloat("reflect", 1.0);
+	programDefer1.setFloat("reflect", 0.5);
 	programDefer1.setMat4("mMat", quadModel.modelMat);
 	quadModel.draw(flag.useTex);
 
@@ -220,6 +219,14 @@ function render(delta, time) {
 	programDefer2.setTex("reflectTex", gbuffer.reflectTex, 3);
 	programDefer2.setTex("normalVTex", gbuffer.normalVTex, 4);
 	programDefer2.setTex("posVTex", gbuffer.posVTex, 5);
+	programDefer2.setMat4("pMat", camera.pMat);
+	programDefer2.setMat4("invpMat", camera.inv_pMat);
+	programDefer2.setMat4("invvMat", camera.inv_vMat);
+	// programDefer2.setVec2("mousePos", camera.mousePos);
+	// programDefer2.setVec2(
+	// 	"winSize",
+	// 	glm.vec2.clone([window.innerWidth, window.innerHeight])
+	// );
 
 	winModel.draw();
 
@@ -231,9 +238,9 @@ function render(delta, time) {
 	// gl.useProgram(programObj.id);
 	// programObj.setMat4("pvMat", camera.getPVMat());
 
-	// sphereModel.setPos([5, 7, 5]);
-	// programObj.setMat4("mMat", sphereModel.modelMat);
-	// sphereModel.draw(false);
+	// // dragonModel.setPos([5, 7, 5]);
+	// programObj.setMat4("mMat", dragonModel.modelMat);
+	// dragonModel.draw(flag.useTex);
 }
 
 window.onresize = () => {

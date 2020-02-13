@@ -31,18 +31,10 @@ export default class ObjModel {
 		this.scale = glm.vec3.clone([1, 1, 1]);
 	}
 
-	setPos(pos) {
+	setSc_Pos(scale, pos) {
 		let a = glm.mat4.create();
-		glm.vec3.clone(this.pos, pos);
-		glm.mat4.scale(this.modelMat, a, this.scale);
+		glm.mat4.scale(this.modelMat, this.modelMat, scale);
 		glm.mat4.translate(this.modelMat, this.modelMat, pos);
-	}
-
-	setScale(scale) {
-		let a = glm.mat4.create();
-		glm.vec3.clone(this.scale, scale);
-		glm.mat4.scale(this.modelMat, a, scale);
-		glm.mat4.translate(this.modelMat, this.modelMat, this.pos);
 	}
 
 	async draw(useTex) {
