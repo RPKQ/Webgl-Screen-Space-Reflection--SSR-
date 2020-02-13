@@ -123,6 +123,36 @@
 				fposV = vposV;
 			}
 		</script>
+
+		<script type="x-shader/x-vertex" id="defer2V">
+			#version 300 es
+
+			layout(location = 0) in vec2 iPosition;
+			layout(location = 1) in vec2 iTexcoord;
+
+			out vec2 vtexCoord;
+
+			void main() {
+				gl_Position = vec4(iPosition, -1.0, 1.0);
+				vtexCoord = iTexcoord;
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="defer2F">
+			#version 300 es
+			precision highp float;
+
+			in vec2 vtexCoord;
+			out vec4 fFragColor;
+
+			uniform sampler2D depthTex;
+			uniform sampler2D normalVTex;
+			uniform sampler2D reflectTex;
+			uniform sampler2D colorTex;
+			uniform sampler2D posVTex;
+
+			void main() {
+				vec3 color = texture(colorTex, vtexCoord).rgb;
+				fFragColor = vec4(color, 1.0);
 			}
 		</script>
 

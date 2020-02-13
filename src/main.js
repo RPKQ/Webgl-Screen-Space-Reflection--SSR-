@@ -22,6 +22,7 @@ var global = {
 var programObj = null;
 var programWindow = null;
 var programDefer1 = null;
+var programDefer2 = null;
 
 var camera = null;
 
@@ -116,6 +117,7 @@ function initVar() {
 
 	// program
 	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
+	programDefer2 = new Program.default(gl, "defer2V", "defer2F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
 	programObj = new Program.default(gl, "objV", "objF");
 
@@ -192,15 +194,15 @@ function render(delta, time) {
 	programDefer1.setMat4("mMat", dragonModel.modelMat);
 	dragonModel.draw(flag.useTex);
 
-	// Sphere
-	// programDefer1.setFloat("reflect", 1.0);
-	// programDefer1.setMat4("mMat", sphereModel.modelMat);
-	// sphereModel.draw(false);
-
 	// quad
 	programDefer1.setFloat("reflect", 1.0);
 	programDefer1.setMat4("mMat", quadModel.modelMat);
 	quadModel.draw(flag.useTex);
+
+	// Sphere
+	// programDefer1.setFloat("reflect", 1.0);
+	// programDefer1.setMat4("mMat", sphereModel.modelMat);
+	// sphereModel.draw(false);
 
 	// sponza
 	// programDefer1.setFloat("reflect", 0.0);
@@ -212,10 +214,19 @@ function render(delta, time) {
 	gl.clearColor(1.0, 1.0, 1.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(programWindow.id);
-	programWindow.setTex("tex", gbuffer.colorTex, 1);
+	gl.useProgram(programDefer2.id);
+	programDefer2.setTex("depthTex", gbuffer.depthTex, 1);
+	programDefer2.setTex("colorTex", gbuffer.colorTex, 2);
+	programDefer2.setTex("reflectTex", gbuffer.reflectTex, 3);
+	programDefer2.setTex("normalVTex", gbuffer.normalVTex, 4);
+	programDefer2.setTex("posVTex", gbuffer.posVTex, 5);
 
 	winModel.draw();
+
+	// gl.useProgram(programWindow.id);
+	// programWindow.setTex("tex", gbuffer.posVTex, 1);
+
+	// winModel.draw();
 
 	// gl.useProgram(programObj.id);
 	// programObj.setMat4("pvMat", camera.getPVMat());
