@@ -63,6 +63,7 @@
 			layout (location = 1) in vec3 inormal;
 			layout (location = 2) in vec2 itexCoord;
 
+			out vec3 vposV;
 			out vec3 vnormal;
 			out	vec3 vnormalV;
 			out vec2 vtexCoord;
@@ -80,6 +81,7 @@
 				// output
 				vnormal = vec3(mMat * vec4(inormal, 1.0));
 				vnormalV = vec3(vMat * mMat * vec4(inormal, 1.0));
+				vposV = vec3(vMat * mMat * vec4(iposition, 1.0));
 				vtexCoord = itexCoord;
 				vreflect = reflect;
 			}
@@ -88,6 +90,7 @@
 			#version 300 es
 			precision mediump float;
 
+			in vec3 vposV;
 			in vec3 vnormal;
 			in vec3 vnormalV;
 			in vec2 vtexCoord;
@@ -96,6 +99,7 @@
 			layout (location = 0) out vec4 fColor;
 			layout (location = 1) out vec3 fnormalV;
 			layout (location = 2) out float freflect;
+			layout (location = 3) out vec3 fposV;
 
 			uniform int useTex;
 			uniform sampler2D tex;
@@ -116,6 +120,9 @@
 				}
 				fnormalV = vnormalV;
 				freflect = vreflect;
+				fposV = vposV;
+			}
+		</script>
 			}
 		</script>
 

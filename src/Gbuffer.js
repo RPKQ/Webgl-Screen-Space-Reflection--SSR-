@@ -6,7 +6,8 @@ export default class Gbuffer {
 		this.id = null;
 		this.colorTex = null;
 		this.normalVTex = null;
-		// this.reflectTex = null;
+		this.reflectTex = null;
+		this.posVTex = null;
 		this.depthTex = null;
 
 		this.reshape(winW, winH);
@@ -19,6 +20,7 @@ export default class Gbuffer {
 		if (this.colorTex) gl.deleteTexture(this.colorTex);
 		if (this.normalVTex) gl.deleteTexture(this.normalVTex);
 		if (this.reflectTex) gl.deleteTexture(this.reflectTex);
+		if (this.posVTex) gl.deleteTexture(this.posVTex);
 		if (this.depthTex) gl.deleteTexture(this.depthTex);
 
 		// FBO
@@ -31,11 +33,13 @@ export default class Gbuffer {
 		this.colorTex = this.genGbufferTex(0, winW, winH);
 		this.normalVTex = this.genGbufferTex(1, winW, winH);
 		this.reflectTex = this.genGbufferTex(2, winW, winH);
+		this.posVTex = this.genGbufferTex(3, winW, winH);
 
 		gl.drawBuffers([
 			gl.COLOR_ATTACHMENT0,
 			gl.COLOR_ATTACHMENT1,
-			gl.COLOR_ATTACHMENT2
+			gl.COLOR_ATTACHMENT2,
+			gl.COLOR_ATTACHMENT3
 		]);
 
 		// depth attachment
