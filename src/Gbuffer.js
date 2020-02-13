@@ -1,34 +1,42 @@
 var gl = null;
 export default class Gbuffer {
-	constructor(Gl) {
+	constructor(Gl, winW, winH) {
 		gl = Gl;
 
 		this.id = null;
-		this.posTex = null;
 		this.colorTex = null;
+		this.normalVTex = null;
+		// this.reflectTex = null;
 		this.depthTex = null;
 
-		this.reshape();
+		this.reshape(winW, winH);
 	}
 
-	reshape() {
+	reshape(winW, winH) {
 		// delete old
 
 		if (this.id) gl.deleteFramebuffer(this.id);
-		if (this.posTex) gl.deleteTexture(this.posTex);
 		if (this.colorTex) gl.deleteTexture(this.colorTex);
+		if (this.normalVTex) gl.deleteTexture(this.normalVTex);
+		if (this.reflectTex) gl.deleteTexture(this.reflectTex);
+		if (this.depthTex) gl.deleteTexture(this.depthTex);
 
 		// FBO
 		this.id = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.id);
 
 		// color attachments
-		gl.activeTexture(gl.TEXTURE0);
+		gl.activeTexture(gl.TEXTURE1);
 
-		this.posTex = this.genGbufferTex(0);
-		this.colorTex = this.genGbufferTex(1);
+		this.colorTex = this.genGbufferTex(0, winW, winH);
+		this.normalVTex = this.genGbufferTex(1, winW, winH);
+		this.reflectTex = this.genGbufferTex(2, winW, winH);
 
-		gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+		gl.drawBuffers([
+			gl.COLOR_ATTACHMENT0,
+			gl.COLOR_ATTACHMENT1,
+			gl.COLOR_ATTACHMENT2
+		]);
 
 		// depth attachment
 		this.depthTex = gl.createTexture();
@@ -38,13 +46,7 @@ export default class Gbuffer {
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texStorage2D(
-			gl.TEXTURE_2D,
-			1,
-			gl.DEPTH_COMPONENT16,
-			gl.drawingBufferWidth,
-			gl.drawingBufferHeight
-		);
+		gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT16, winW, winH);
 		gl.framebufferTexture2D(
 			gl.FRAMEBUFFER,
 			gl.DEPTH_ATTACHMENT,
@@ -56,7 +58,7 @@ export default class Gbuffer {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
-	genGbufferTex(target) {
+	genGbufferTex(target, winW, winH) {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.id);
 
 		let tex = gl.createTexture();
@@ -66,13 +68,7 @@ export default class Gbuffer {
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texStorage2D(
-			gl.TEXTURE_2D,
-			1,
-			gl.RGBA16F,
-			gl.drawingBufferWidth,
-			gl.drawingBufferHeight
-		);
+		gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA16F, winW, winH);
 		gl.framebufferTexture2D(
 			gl.FRAMEBUFFER,
 			gl.COLOR_ATTACHMENT0 + target,

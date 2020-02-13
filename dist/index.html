@@ -58,36 +58,64 @@
 			#version 300 es
 			layout(std140, column_major) uniform;
 			precision mediump float;
-			layout(location = 0) in vec3 iPosition;
-			layout(location = 1) in vec2 iTexcoord;
 
-			out vec2 vtexcoord;
-			out vec3 vposW;
+			layout (location = 0) in vec3 iposition;
+			layout (location = 1) in vec3 inormal;
+			layout (location = 2) in vec2 itexCoord;
 
-			uniform mat4 mvp;
-			uniform mat4 m;
+			out vec3 vnormal;
+			out	vec3 vnormalV;
+			out vec2 vtexCoord;
+			flat out float vreflect;
 
-			void main() {
-			gl_Position = mvp * vec4(iPosition, 1.0f);
-			vtexcoord = iTexcoord;
-			vposW = vec3(m * vec4(iPosition, 1.0f));
+			uniform mat4 pvMat;
+			uniform mat4 vMat;
+			uniform mat4 mMat;
+			uniform float reflect;
+
+			void main()
+			{
+			    gl_Position = pvMat * mMat * vec4(iposition, 1.0);
+
+				// output
+				vnormal = vec3(mMat * vec4(inormal, 1.0));
+				vnormalV = vec3(vMat * mMat * vec4(inormal, 1.0));
+				vtexCoord = itexCoord;
+				vreflect = reflect;
 			}
 		</script>
 		<script type="x-shader/x-fragment" id="defer1F">
 			#version 300 es
 			precision mediump float;
 
-			layout(location = 0) out vec3 fPosW;
-			layout(location = 1) out vec4 fColor;
+			in vec3 vnormal;
+			in vec3 vnormalV;
+			in vec2 vtexCoord;
+			flat in float vreflect;
 
-			in vec2 vtexcoord;
-			in vec3 vposW;
+			layout (location = 0) out vec4 fColor;
+			layout (location = 1) out vec3 fnormalV;
+			layout (location = 2) out float freflect;
 
+			uniform int useTex;
 			uniform sampler2D tex;
 
-			void main() {
-				fColor = vec4(texture(tex, vtexcoord).rgb, 1.0);
-				fPosW = vposW;
+
+			void main()
+			{
+				if(useTex == 1)
+				{
+					vec3 texColor = texture(tex, vtexCoord).rgb;
+					fColor = vec4(texColor, 1.0);
+				}
+				else
+				{
+					vec3 texColor = normalize(vnormal);
+					vec3 result = vec3(max(texColor.x, 0.0), max(texColor.y, 0.0), max(texColor.z, 0.0));
+					fColor = vec4(result, 1.0);
+				}
+				fnormalV = vnormalV;
+				freflect = vreflect;
 			}
 		</script>
 

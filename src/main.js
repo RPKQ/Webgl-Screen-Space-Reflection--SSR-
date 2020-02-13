@@ -122,74 +122,7 @@ function initVar() {
 	winModel = new WinModel.default(gl);
 
 	// FBO
-	gbuffer = new Gbuffer.default(gl);
-}
-
-function initFBO() {
-	if (fbo.id) gl.deleteFramebuffer(fbo.id);
-	if (fbo.tex) gl.deleteTexture(fbo.tex);
-	if (fbo.rbo) gl.deleteRenderbuffer(fbo.rbo);
-
-	// Create a frame buffer object (FBO)
-	fbo.id = gl.createFramebuffer();
-	if (!fbo.id) {
-		console.log("Failed to create frame buffer object");
-		return;
-	}
-
-	// Create a texture object and set its size and parameters
-	fbo.tex = gl.createTexture(); // Create a texture object
-	if (!fbo.tex) {
-		console.log("Failed to create texture object");
-		return;
-	}
-	gl.bindTexture(gl.TEXTURE_2D, fbo.tex); // Bind the object to target
-	gl.texImage2D(
-		gl.TEXTURE_2D,
-		0,
-		gl.RGBA,
-		window.innerWidth,
-		window.innerHeight,
-		0,
-		gl.RGBA,
-		gl.UNSIGNED_BYTE,
-		null
-	);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-	// Create a renderbuffer object and Set its size and parameters
-	fbo.rbo = gl.createRenderbuffer(); // Create a renderbuffer object
-	if (!fbo.rbo) {
-		console.log("Failed to create renderbuffer object");
-		return;
-	}
-	gl.bindRenderbuffer(gl.RENDERBUFFER, fbo.rbo); // Bind the object to target
-	gl.renderbufferStorage(
-		gl.RENDERBUFFER,
-		gl.DEPTH_COMPONENT16,
-		window.innerWidth,
-		window.innerHeight
-	);
-
-	// Attach the texture and the renderbuffer object to the FBO
-	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
-	gl.framebufferTexture2D(
-		gl.FRAMEBUFFER,
-		gl.COLOR_ATTACHMENT0,
-		gl.TEXTURE_2D,
-		fbo.tex,
-		0
-	);
-	gl.framebufferRenderbuffer(
-		gl.FRAMEBUFFER,
-		gl.DEPTH_ATTACHMENT,
-		gl.RENDERBUFFER,
-		fbo.rbo
-	);
-
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	gl.bindTexture(gl.TEXTURE_2D, null);
-	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+	gbuffer = new Gbuffer.default(gl, window.innerWidth, window.innerHeight);
 }
 
 async function loadAssets() {
@@ -199,14 +132,14 @@ async function loadAssets() {
 	// let results = await Promise.all(promises);
 
 	// dragon
-	// dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programObj);
-	// dragonModel.loadModel();
+	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
+	dragonModel.loadModel();
 
 	// sponza
 	// sponzaModel = new ObjModel.default(
 	// 	gl,
 	// 	"./asset/crytek/sponza.obj",
-	// 	programObj
+	// 	programDefer1
 	// );
 	// new Promise((resolve, reject) => {
 	// 	resolve(sponzaModel.loadModel());
@@ -237,58 +170,60 @@ function animate(time) {
 }
 
 function render(delta, time) {
-	// set uniform
-	let mvp = glm.mat4.create();
-	glm.mat4.multiply(mvp, camera.pMat, camera.vMat);
-	glm.mat4.multiply(mvp, mvp, sphereModel.modelMat);
-
 	// draw to fbo
-	// gl.useProgram(programDefer1.id);
-	// gl.bindFramebuffer(gl.FRAMEBUFFER, gbuffer.id);
-	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.useProgram(programDefer1.id);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, gbuffer.id);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	programDefer1.setMat4("pvMat", camera.getPVMat());
+	programDefer1.setMat4("vMat", camera.vMat);
 
-	// programDefer1.setMat4("mvp", mvp);
-	// programDefer1.setMat4("m", cubeModel.mm);
-	// programDefer1.setTex("tex", cubeModel.atex, 0);
+	// // Dragon
+	programDefer1.setMat4("mMat", dragonModel.modelMat);
+	programDefer1.setFloat("reflect", 0.0);
+	dragonModel.draw(flag.useTex);
 
-	// gl.bindVertexArray(cubeModel.vao);
-	// gl.drawArrays(gl.TRIANGLE_FAN, 0, 24);
+	// Sphere
+	programDefer1.setFloat("reflect", 1.0);
+	sphereModel.setPos([10, 7, 10]);
+	programDefer1.setMat4("mMat", sphereModel.modelMat);
+	sphereModel.draw(false);
 
 	// // draw to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.clearColor(1.0, 1.0, 1.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	// gl.useProgram(programWindow.id);
-	// programWindow.setTex("tex", dragonModel.tex, 0);
+	gl.useProgram(programWindow.id);
+	programWindow.setTex("tex", gbuffer.reflectTex, 1);
 
-	// winModel.draw();
+	winModel.draw();
 
-	gl.useProgram(programObj.id);
-	programObj.setMat4("pvMat", camera.getPVMat());
+	// gl.useProgram(programObj.id);
+	// programObj.setMat4("pvMat", camera.getPVMat());
+
+	// sphereModel.setPos([5, 7, 5]);
+	// programObj.setMat4("mMat", sphereModel.modelMat);
+	// sphereModel.draw(false);
+
+	// sphereModel.setPos([-0.5, 0, 0]);
+	// programObj.setMat4("mMat", sphereModel.modelMat);
+	// sphereModel.draw(false);
+
+	// sphereModel.setPos([0, -5, 2.5]);
+	// programObj.setMat4("mMat", sphereModel.modelMat);
+	// sphereModel.draw(false);
+
+	// sphereModel.setPos([-5, 2.5, 0]);
+	// programObj.setMat4("mMat", sphereModel.modelMat);
+	// sphereModel.draw(false);
 
 	// sponzaModel.draw(flag.useTex);
 	// dragonModel.draw(flag.useTex);
-	sphereModel.setPos([5, 7, 5]);
-	programObj.setMat4("modelMat", sphereModel.modelMat);
-	sphereModel.draw(false);
-
-	sphereModel.setPos([-0.5, 0, 0]);
-	programObj.setMat4("modelMat", sphereModel.modelMat);
-	sphereModel.draw(false);
-
-	sphereModel.setPos([0, -5, 2.5]);
-	programObj.setMat4("modelMat", sphereModel.modelMat);
-	sphereModel.draw(false);
-
-	sphereModel.setPos([-5, 2.5, 0]);
-	programObj.setMat4("modelMat", sphereModel.modelMat);
-	sphereModel.draw(false);
 }
 
 window.onresize = () => {
-	initFBO();
 	let canvas = document.querySelector("canvas");
+	gbuffer.reshape(window.innerWidth, window.innerHeight);
 
 	if (gl && canvas) {
 		canvas.width = window.innerWidth;
@@ -301,7 +236,6 @@ window.onresize = () => {
 window.onload = () => {
 	initWebGL();
 	initVar();
-	initFBO();
 	loadAssets().then(() => {
 		// rendering loop
 		window.requestAnimationFrame(animate);
