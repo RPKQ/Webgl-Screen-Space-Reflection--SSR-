@@ -73,16 +73,19 @@ export default class Camera {
 					break;
 				case "t":
 					console.log(`camPos: ${self.camPos}`);
-					console.log(`center: ${self.center}`);
+					// console.log(`center: ${self.center}`);
 					break;
 			}
 
-			glm.mat4.lookAt(self.vMat, self.camPos, self.center, [0, 1, 0]);
+			new Promise((resolve, reject) =>
+				resolve(glm.mat4.lookAt(self.vMat, self.camPos, self.center, [0, 1, 0]))
+			).then(() => glm.mat4.invert(self.inv_vMat, self.vMat));
 		};
 
 		window.onmousedown = function mouseDown(e) {
 			self.rotating = true;
 			self.lastPos = [e.x, e.y];
+			self.mousePos = glm.vec2.clone([e.x, e.y]);
 		};
 
 		window.onmouseup = function mouseUp(e) {
@@ -90,7 +93,6 @@ export default class Camera {
 		};
 
 		window.onmousemove = function mouseMove(e) {
-			this.mousePos = glm.vec2.clone([e.x, e.y]);
 			if (!self.rotating) return;
 
 			if (self.lastPos[0] == -1 && self.lastPos[1] == -1) {

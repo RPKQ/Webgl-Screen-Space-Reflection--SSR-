@@ -15,7 +15,8 @@ var gui = null;
 
 var global = {
 	start: null,
-	canvas: null
+	canvas: null,
+	winSize: null
 };
 // -- program -- //
 
@@ -23,6 +24,7 @@ var programObj = null;
 var programWindow = null;
 var programDefer1 = null;
 var programDefer2 = null;
+var programReflect = null;
 
 var camera = null;
 
@@ -30,6 +32,7 @@ var dragonModel = null;
 var sponzaModel = null;
 var sphereModel = null;
 var quadModel = null;
+var cubeModel = null;
 
 var winModel = null;
 
@@ -108,8 +111,8 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[0, 2, 10],
-		[0, 0, 0],
+		[0, 5, 10],
+		[0, 5, 0],
 		gl.drawingBufferWidth,
 		gl.drawingBufferHeight,
 		window
@@ -120,12 +123,16 @@ function initVar() {
 	programDefer2 = new Program.default(gl, "defer2V", "defer2F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
 	programObj = new Program.default(gl, "objV", "objF");
+	programReflect = new Program.default(gl, "reflectV", "reflectF");
 
 	// winModel
 	winModel = new WinModel.default(gl);
 
 	// FBO
 	gbuffer = new Gbuffer.default(gl, window.innerWidth, window.innerHeight);
+
+	// others
+	global.winSize = glm.vec2.clone([window.innerWidth, window.innerHeight]);
 }
 
 async function loadAssets() {
@@ -136,11 +143,11 @@ async function loadAssets() {
 	rrtex = genTexture(results[0]);
 
 	// dragon
-	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programObj);
+	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
 	dragonModel.loadModel();
-	// dragonModel.setSc_Pos([0.5, 0.5, 0.5], [0, 5, 0]);
+	dragonModel.setSc_Pos([0.5, 0.5, 0.5], [0, 0, 0]);
 
-	// // sponza
+	// sponza
 	// sponzaModel = new ObjModel.default(
 	// 	gl,
 	// 	"./asset/crytek/sponza.obj",
@@ -153,9 +160,14 @@ async function loadAssets() {
 	// });
 
 	//sphere
-	// sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programDefer1);
-	// sphereModel.loadModel();
-	// sphereModel.setPos([10, 7, 10]);
+	sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programDefer1);
+	sphereModel.loadModel();
+	sphereModel.setSc_Pos([1, 1, 1], [0, -2, 0]);
+
+	//sphere
+	cubeModel = new ObjModel.default(gl, "./asset/cube.obj", programDefer1);
+	cubeModel.loadModel();
+	cubeModel.setSc_Pos([1, 1, 1], [0, 5, 0]);
 
 	// quad
 	quadModel = new ObjModel.default(gl, "./asset/quad.obj", programDefer1);
@@ -182,23 +194,28 @@ function animate(time) {
 
 function render(delta, time) {
 	// draw to fbo
-	gl.useProgram(programDefer1.id);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, gbuffer.id);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.useProgram(programDefer1.id);
 	programDefer1.setMat4("pvMat", camera.getPVMat());
 	programDefer1.setMat4("vMat", camera.vMat);
-
-	// Dragon
-	programDefer1.setFloat("reflect", 0.0);
-	programDefer1.setMat4("mMat", dragonModel.modelMat);
-	dragonModel.draw(flag.useTex);
 
 	// quad
 	programDefer1.setFloat("reflect", 0.5);
 	programDefer1.setMat4("mMat", quadModel.modelMat);
 	quadModel.draw(flag.useTex);
 
-	// Sphere
+	// Dragon
+	programDefer1.setFloat("reflect", 0.0);
+	programDefer1.setMat4("mMat", dragonModel.modelMat);
+	dragonModel.draw(flag.useTex);
+
+	// cube
+	// programDefer1.setFloat("reflect", 1.0);
+	// programDefer1.setMat4("mMat", cubeModel.modelMat);
+	// cubeModel.draw(false);
+
+	// // Sphere
 	// programDefer1.setFloat("reflect", 1.0);
 	// programDefer1.setMat4("mMat", sphereModel.modelMat);
 	// sphereModel.draw(false);
@@ -208,32 +225,48 @@ function render(delta, time) {
 	// programDefer1.setMat4("mMat", sponzaModel.modelMat);
 	// sponzaModel.draw(flag.useTex);
 
-	// // draw to screen
+	// draw to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.clearColor(1.0, 1.0, 1.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	gl.useProgram(programDefer2.id);
-	programDefer2.setTex("depthTex", gbuffer.depthTex, 1);
-	programDefer2.setTex("colorTex", gbuffer.colorTex, 2);
-	programDefer2.setTex("reflectTex", gbuffer.reflectTex, 3);
-	programDefer2.setTex("normalVTex", gbuffer.normalVTex, 4);
-	programDefer2.setTex("posVTex", gbuffer.posVTex, 5);
-	programDefer2.setMat4("pMat", camera.pMat);
-	programDefer2.setMat4("invpMat", camera.inv_pMat);
-	programDefer2.setMat4("invvMat", camera.inv_vMat);
+	// gl.useProgram(programDefer2.id);
+	// programDefer2.setTex("depthTex", gbuffer.depthTex, 1);
+	// programDefer2.setTex("colorTex", gbuffer.colorTex, 2);
+	// programDefer2.setTex("reflectTex", gbuffer.reflectTex, 3);
+	// programDefer2.setTex("normalVTex", gbuffer.normalVTex, 4);
+	// programDefer2.setTex("posVTex", gbuffer.posVTex, 5);
+	// programDefer2.setMat4("pMat", camera.pMat);
+	// programDefer2.setMat4("invpMat", camera.inv_pMat);
+	// programDefer2.setMat4("invvMat", camera.inv_vMat);
 	// programDefer2.setVec2("mousePos", camera.mousePos);
 	// programDefer2.setVec2(
 	// 	"winSize",
 	// 	glm.vec2.clone([window.innerWidth, window.innerHeight])
 	// );
 
-	winModel.draw();
-
-	// gl.useProgram(programWindow.id);
-	// programWindow.setTex("tex", gbuffer.posVTex, 1);
-
 	// winModel.draw();
+
+	gl.useProgram(programReflect.id);
+	programReflect.setTex("depthTex", gbuffer.depthTex, 1);
+	programReflect.setTex("colorTex", gbuffer.colorTex, 2);
+	programReflect.setTex("reflectTex", gbuffer.reflectTex, 3);
+	programReflect.setTex("normalVTex", gbuffer.normalVTex, 4);
+	programReflect.setTex("posVTex", gbuffer.posVTex, 5);
+	programReflect.setMat4("pMat", camera.pMat);
+	programReflect.setMat4("invpMat", camera.inv_pMat);
+	programReflect.setMat4("invvMat", camera.inv_vMat);
+
+	let a = glm.vec2.clone([
+		camera.mousePos[0] / global.winSize[0],
+		(global.winSize[1] - camera.mousePos[1]) / global.winSize[1]
+	]);
+	// console.log(a);
+	programReflect.setVec2("mousePos", a);
+
+	winModel.draw();
+	// console.log(`mousePos: ${camera.mousePos}`);
+	// console.log(`winSize: ${global.winSize}`);
 
 	// gl.useProgram(programObj.id);
 	// programObj.setMat4("pvMat", camera.getPVMat());
@@ -241,11 +274,16 @@ function render(delta, time) {
 	// // dragonModel.setPos([5, 7, 5]);
 	// programObj.setMat4("mMat", dragonModel.modelMat);
 	// dragonModel.draw(flag.useTex);
+
+	// gl.useProgram(programWindow.id);
+	// programWindow.setTex("tex", gbuffer.normalVTex, 6);
+	// winModel.draw(flag.useTex);
 }
 
 window.onresize = () => {
 	let canvas = document.querySelector("canvas");
 	gbuffer.reshape(window.innerWidth, window.innerHeight);
+	global.winSize = glm.vec2.clone([window.innerWidth, window.innerHeight]);
 
 	if (gl && canvas) {
 		canvas.width = window.innerWidth;

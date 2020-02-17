@@ -79,8 +79,8 @@
 			    gl_Position = pvMat * mMat * vec4(iposition, 1.0);
 
 				// output
-				vnormal = mat3(transpose(inverse(mMat))) *inormal;
-				vnormalV = vec3(vMat * vec4(mat3(transpose(inverse(mMat))) * inormal, 1.0));
+				vnormal = normalize(mat3(transpose(inverse(mMat))) * inormal);
+				vnormalV = vec3( vMat * vec4(mat3(transpose(inverse(mMat))) * inormal, 1.0));
 				vposV = vec3(vMat * mMat * vec4(iposition, 1.0));
 				vtexCoord = itexCoord;
 				vreflect = reflect;
@@ -114,7 +114,7 @@
 				}
 				else
 				{
-					vec3 texColor = normalize(vnormal);
+					vec3 texColor = vnormal;
 					vec3 result = vec3(max(texColor.x, 0.0), max(texColor.y, 0.0), max(texColor.z, 0.0));
 					fColor = vec4(result, 1.0);
 				}
@@ -137,8 +137,133 @@
 				vtexCoord = iTexcoord;
 			}
 		</script>
-
 		<script type="x-shader/x-fragment" id="defer2F">
+			#version 300 es
+			precision highp float;
+
+			in vec2 vtexCoord;
+			out vec4 fFragColor;
+
+			uniform sampler2D depthTex;
+			uniform sampler2D normalVTex;
+			uniform sampler2D reflectTex;
+			uniform sampler2D colorTex;
+			uniform sampler2D posVTex;
+
+			uniform mat4 pMat;
+			uniform mat4 invpMat;
+			uniform mat4 invvMat;
+
+			uniform vec2 mousePos;
+			uniform vec2 winSize;
+
+			const float strideSize = 1.0;
+			const int max_steps = 30;
+			const float minRayStep = 0.1;
+
+			vec3 rayMarch(vec3 reflectDir, vec3 viewPos);
+			vec2 cam2screen(vec3 camVec);
+			vec3 mousePosReflectpoint();
+
+			void main() {
+				float doReflect = texture(reflectTex, vtexCoord).x;
+				vec3 color = texture(colorTex, vtexCoord).rgb;
+
+				if(doReflect == 0.0)
+				{
+					fFragColor = vec4(color, 1.0);
+				}
+				else if(doReflect == 0.5)
+				{
+					vec3 viewNormal = vec3(texture(normalVTex, vtexCoord));
+					vec3 viewPos = texture(posVTex, vtexCoord).xyz;
+
+					vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
+					vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
+
+					vec3 mouseReflectPoint = mousePosReflectpoint();
+
+					if(hitScreenPos.x - 0.1 < mouseReflectPoint.x && mouseReflectPoint.x < hitScreenPos.x + 0.1 &&
+					hitScreenPos.y - 0.1 < mouseReflectPoint.y && mouseReflectPoint.y < hitScreenPos.y + 0.1)
+					{
+						fFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+					}
+					else
+					{
+						fFragColor = texture(colorTex, hitScreenPos.xy);
+					}
+				}
+				else
+				{
+					fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
+				}
+
+			}
+
+			vec3 mousePosReflectpoint()
+			{
+				vec2 screenMouse = vec2(mousePos.x / winSize.x, mousePos.y / winSize.y);
+				vec3 viewNormal = vec3(texture(normalVTex, screenMouse));
+				vec3 viewPos = texture(posVTex, screenMouse).xyz;
+
+				vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
+				vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
+
+				return hitScreenPos;
+			}
+
+			vec3 rayMarch(vec3 reflectDir, vec3 viewPos)
+			{
+				vec3 curPos = viewPos;
+				vec3 stride = strideSize * reflectDir;
+				vec2 curScreenPos;
+				float depth;
+				float dDepth;
+
+				for(int i=0; i<max_steps; i++)
+				{
+					curPos += stride;
+					curScreenPos = cam2screen(curPos);
+					depth = texture(depthTex, curScreenPos).z;
+
+					dDepth = curPos.z - depth;
+
+					if((stride.z - dDepth) < 1.2)
+					{
+						// if hit
+						if(dDepth <= 0.0)
+						{
+							return vec3(curScreenPos, depth);
+						}
+					}
+				}
+
+				return vec3(curScreenPos, depth);
+			}
+
+			vec2 cam2screen(vec3 camVec)
+			{
+				vec4 projectedCoord = pMat * vec4(camVec, 1.0);
+				projectedCoord.xyz /= projectedCoord.w;
+				projectedCoord.xy = projectedCoord.xy * 0.5 + 0.5;
+				return projectedCoord.xy;
+			}
+		</script>
+
+		<script type="x-shader/x-vertex" id="reflectV">
+			#version 300 es
+
+			layout(location = 0) in vec2 iPosition;
+			layout(location = 1) in vec2 iTexcoord;
+
+			out vec2 vtexCoord;
+
+			void main() {
+				gl_Position = vec4(iPosition, -1.0, 1.0);
+				vtexCoord = iTexcoord;
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="reflectF">
 			#version 300 es
 			precision highp float;
 
@@ -166,28 +291,50 @@
 			vec2 cam2screen(vec3 camVec);
 
 			void main() {
-				float doReflect = texture(reflectTex, vtexCoord).x;
 				vec3 color = texture(colorTex, vtexCoord).rgb;
-
-				if(doReflect == 0.0)
-				{
-					fFragColor = vec4(color, 1.0);
-				}
-				else if(doReflect == 0.5)
-				{
-					vec3 viewNormal = vec3(texture(normalVTex, vtexCoord) * invvMat);
-					vec3 viewPos = texture(posVTex, vtexCoord).xyz;
-
-					vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
-					vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
-
-					fFragColor = texture(colorTex, hitScreenPos.xy);
-				}
+				if(mousePos.x - 0.01 < gl_PointCoord.x && gl_PointCoord.x < mousePos.x + 0.01 &&
+					mousePos.y - 0.01 < gl_PointCoord.y && gl_PointCoord.y < mousePos.y + 0.01)
+					{
+						fFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+					}
 				else
 				{
-					fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
-				}
+					// ---  mouse --- //
+					vec3 mouseNormal = texture(normalVTex, mousePos).xyz;
+					vec3 mouseVPos = texture(posVTex, mousePos).xyz;
 
+					vec3 mreflectDir = normalize(reflect(normalize(mouseVPos), normalize(mouseNormal)));
+					vec3 mouseHitScreenPos = rayMarch(mreflectDir * max(minRayStep, -mouseVPos.z), mouseVPos);
+
+
+					if(mouseHitScreenPos.x -0.01 < gl_PointCoord.x && gl_PointCoord.x < mouseHitScreenPos.x +0.01 &&
+						mouseHitScreenPos.y -0.01 < gl_PointCoord.y && gl_PointCoord.y < mouseHitScreenPos.y +0.01)
+					{
+						fFragColor = vec4(0.0, 1.0, 1.0, 1.0);
+					}
+					else
+					{
+						float doReflect = texture(reflectTex, vtexCoord).x;
+						if(doReflect == 0.0)
+						{
+								fFragColor = vec4(color, 1.0);
+						}
+						else if(doReflect == 0.5)
+						{
+							// --- curPos --- //
+							vec3 viewNormal = vec3(texture(normalVTex, vtexCoord));
+							vec3 viewPos = texture(posVTex, vtexCoord).xyz;
+
+							vec3 reflectDir = normalize(reflect(normalize(viewPos), -normalize(viewNormal)));
+							vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
+							fFragColor = texture(colorTex, hitScreenPos.xy);
+						}
+						else
+						{
+							fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
+						}
+					}
+				}
 			}
 
 			vec3 rayMarch(vec3 reflectDir, vec3 viewPos)
