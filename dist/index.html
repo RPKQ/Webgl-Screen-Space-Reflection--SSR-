@@ -80,7 +80,7 @@
 
 				// output
 				vnormal = normalize(mat3(transpose(inverse(mMat))) * inormal);
-				vnormalV = vec3( vMat * vec4(mat3(transpose(inverse(mMat))) * inormal, 1.0));
+				vnormalV = normalize(mat3(transpose(inverse(vMat * mMat))) * inormal);
 				vposV = vec3(vMat * mMat * vec4(iposition, 1.0));
 				vtexCoord = itexCoord;
 				vreflect = reflect;
@@ -325,7 +325,7 @@
 							vec3 viewNormal = vec3(texture(normalVTex, vtexCoord));
 							vec3 viewPos = texture(posVTex, vtexCoord).xyz;
 
-							vec3 reflectDir = normalize(reflect(normalize(viewPos), -normalize(viewNormal)));
+							vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
 							vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
 							fFragColor = texture(colorTex, hitScreenPos.xy);
 						}
@@ -362,6 +362,7 @@
 						}
 					}
 				}
+				//return vec3(cam2screen(curPos + stride), 1.0);
 
 				return vec3(curScreenPos, depth);
 			}

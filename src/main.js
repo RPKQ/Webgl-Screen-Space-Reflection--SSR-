@@ -145,7 +145,7 @@ async function loadAssets() {
 	// dragon
 	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
 	dragonModel.loadModel();
-	dragonModel.setSc_Pos([0.5, 0.5, 0.5], [0, 0, 0]);
+	dragonModel.setSc_Pos([0.5, 0.5, 0.5], [3, 0, 0]);
 
 	// sponza
 	// sponzaModel = new ObjModel.default(
@@ -160,14 +160,14 @@ async function loadAssets() {
 	// });
 
 	//sphere
-	sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programDefer1);
-	sphereModel.loadModel();
-	sphereModel.setSc_Pos([1, 1, 1], [0, -2, 0]);
+	// sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programDefer1);
+	// sphereModel.loadModel();
+	// sphereModel.setSc_Pos([1, 1, 1], [0, -2, 0]);
 
-	//sphere
-	cubeModel = new ObjModel.default(gl, "./asset/cube.obj", programDefer1);
-	cubeModel.loadModel();
-	cubeModel.setSc_Pos([1, 1, 1], [0, 5, 0]);
+	// //sphere
+	// cubeModel = new ObjModel.default(gl, "./asset/cube.obj", programDefer1);
+	// cubeModel.loadModel();
+	// cubeModel.setSc_Pos([1, 1, 1], [0, 5, 0]);
 
 	// quad
 	quadModel = new ObjModel.default(gl, "./asset/quad.obj", programDefer1);
@@ -247,24 +247,24 @@ function render(delta, time) {
 
 	// winModel.draw();
 
-	gl.useProgram(programReflect.id);
-	programReflect.setTex("depthTex", gbuffer.depthTex, 1);
-	programReflect.setTex("colorTex", gbuffer.colorTex, 2);
-	programReflect.setTex("reflectTex", gbuffer.reflectTex, 3);
-	programReflect.setTex("normalVTex", gbuffer.normalVTex, 4);
-	programReflect.setTex("posVTex", gbuffer.posVTex, 5);
-	programReflect.setMat4("pMat", camera.pMat);
-	programReflect.setMat4("invpMat", camera.inv_pMat);
-	programReflect.setMat4("invvMat", camera.inv_vMat);
+	// gl.useProgram(programReflect.id);
+	// programReflect.setTex("depthTex", gbuffer.depthTex, 1);
+	// programReflect.setTex("colorTex", gbuffer.colorTex, 2);
+	// programReflect.setTex("reflectTex", gbuffer.reflectTex, 3);
+	// programReflect.setTex("normalVTex", gbuffer.normalVTex, 4);
+	// programReflect.setTex("posVTex", gbuffer.posVTex, 5);
+	// programReflect.setMat4("pMat", camera.pMat);
+	// programReflect.setMat4("invpMat", camera.inv_pMat);
+	// programReflect.setMat4("invvMat", camera.inv_vMat);
 
-	let a = glm.vec2.clone([
-		camera.mousePos[0] / global.winSize[0],
-		(global.winSize[1] - camera.mousePos[1]) / global.winSize[1]
-	]);
-	// console.log(a);
-	programReflect.setVec2("mousePos", a);
+	// let a = glm.vec2.clone([
+	// 	camera.mousePos[0] / global.winSize[0],
+	// 	(global.winSize[1] - camera.mousePos[1]) / global.winSize[1]
+	// ]);
+	// // console.log(a);
+	// programReflect.setVec2("mousePos", a);
 
-	winModel.draw();
+	// winModel.draw();
 	// console.log(`mousePos: ${camera.mousePos}`);
 	// console.log(`winSize: ${global.winSize}`);
 
@@ -275,9 +275,9 @@ function render(delta, time) {
 	// programObj.setMat4("mMat", dragonModel.modelMat);
 	// dragonModel.draw(flag.useTex);
 
-	// gl.useProgram(programWindow.id);
-	// programWindow.setTex("tex", gbuffer.normalVTex, 6);
-	// winModel.draw(flag.useTex);
+	gl.useProgram(programWindow.id);
+	programWindow.setTex("tex", gbuffer.normalVTex, 6);
+	winModel.draw(flag.useTex);
 }
 
 window.onresize = () => {
