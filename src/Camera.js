@@ -23,10 +23,7 @@ export default class Camera {
 		glm.mat4.invert(this.inv_vMat, this.vMat);
 		glm.mat4.invert(this.inv_pMat, this.pMat);
 
-		new Promise(() =>
-			glm.mat4.lookAt(this.vMat, this.camPos, this.center, [0, 1, 0])
-		).then(() => glm.mat4.invert(this.inv_vMat, this.vMat));
-		glm.mat4.translate(this.camTransMat, this.camTransMat, -this.camPos);
+		this.setPos(camPos);
 		this.reshape(winW, winH);
 
 		// Camera Control
@@ -78,10 +75,7 @@ export default class Camera {
 					// console.log(`center: ${self.center}`);
 					break;
 			}
-
-			glm.mat4.lookAt(self.vMat, self.camPos, self.center, [0, 1, 0]);
-			glm.mat4.invert(self.inv_vMat, self.vMat);
-			glm.mat4.translate(this.camTransMat, glm.mat4.create(), -this.camPos);
+			self.setPos(self.camPos);
 		};
 
 		window.onmousedown = function mouseDown(e) {
@@ -149,12 +143,19 @@ export default class Camera {
 	}
 
 	setPos(camPos) {
-		this.camPos = camPos;
-		new Promise(() =>
-			glm.mat4.lookAt(this.vMat, this.camPos, this.center, [0, 1, 0])
-		).then(() => {
-			glm.mat4.translate(this.camTransMat, glm.mat4.create(), -this.camPos);
-			glm.mat4.invert(this.inv_vMat, this.vMat);
+		var pos = camPos;
+		var inv_cam = [-camPos[0], -camPos[1], -camPos[2]];
+		new Promise((resolve, reject) => {
+			resolve((this.camPos = glm.vec3.clone(pos)));
+		}).then(result => {
+			let a = glm.mat4.create();
+			glm.mat4.translate(this.camTransMat, a, inv_cam);
+			new Promise((r, j) =>
+				r(glm.mat4.lookAt(this.vMat, this.camPos, this.center, [0, 1, 0]))
+			).then(() => {
+				console.log(this.camTransMat);
+				glm.mat4.invert(this.inv_vMat, this.vMat);
+			});
 		});
 	}
 

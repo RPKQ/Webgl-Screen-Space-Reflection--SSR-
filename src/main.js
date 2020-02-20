@@ -111,8 +111,8 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[0, 5, 10],
-		[0, 5, 0],
+		[0, 0, 10],
+		[0, 0, 0],
 		gl.drawingBufferWidth,
 		gl.drawingBufferHeight,
 		window
@@ -145,7 +145,7 @@ async function loadAssets() {
 	// dragon
 	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
 	dragonModel.loadModel();
-	dragonModel.setSc_Pos([1.0, 1.0, 1.0], [5, 0, 0]);
+	dragonModel.setSc_Pos([1.0, 1.0, 1.0], [0, 0, 0]);
 
 	// sponza
 	// sponzaModel = new ObjModel.default(

@@ -77,7 +77,7 @@
 
 			void main()
 			{
-			    gl_Position = pMat * vMat * mMat * vec4(iposition, 1.0);
+			    gl_Position = pMat * camTransMat * mMat * vec4(iposition, 1.0);
 
 				// output
 				vnormal = normalize(mat3(transpose(inverse(mMat))) * inormal);
@@ -295,7 +295,7 @@
 
 			void main() {
 				vec3 color = texture(colorTex, vtexCoord).rgb;
-				//fFragColor = vec4(color, 1.0);
+				fFragColor = vec4(color, 1.0);
 
 				// ---  mouse --- //
 				/*vec3 mouseNormal = vec3(texture(normalVTex, mousePos));
@@ -312,7 +312,7 @@
 				}
 				else
 				{*/
-					float doReflect = texture(reflectTex, vtexCoord).x;
+					/*float doReflect = texture(reflectTex, vtexCoord).x;
 					if(doReflect == 0.0)
 					{
 							fFragColor = vec4(color, 1.0);
@@ -330,7 +330,7 @@
 					else
 					{
 						fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
-					}
+					}*/
 
 				//}
 			}
