@@ -57,7 +57,7 @@
 		<script type="x-shader/x-vertex" id="defer1V">
 			#version 300 es
 			layout(std140, column_major) uniform;
-			precision mediump float;
+			precision highp float;
 
 			layout (location = 0) in vec3 iposition;
 			layout (location = 1) in vec3 inormal;
@@ -69,14 +69,15 @@
 			out vec2 vtexCoord;
 			flat out float vreflect;
 
-			uniform mat4 pvMat;
+			uniform mat4 pMat;
 			uniform mat4 vMat;
+			uniform mat4 camTransMat;
 			uniform mat4 mMat;
 			uniform float reflect;
 
 			void main()
 			{
-			    gl_Position = pvMat * mMat * vec4(iposition, 1.0);
+			    gl_Position = pMat * vMat * mMat * vec4(iposition, 1.0);
 
 				// output
 				vnormal = normalize(mat3(transpose(inverse(mMat))) * inormal);
@@ -88,7 +89,7 @@
 		</script>
 		<script type="x-shader/x-fragment" id="defer1F">
 			#version 300 es
-			precision mediump float;
+			precision highp float;
 
 			in vec3 vposV;
 			in vec3 vnormal;
@@ -277,10 +278,12 @@
 			uniform sampler2D posVTex;
 
 			uniform mat4 pMat;
+			uniform mat4 vMat;
 			uniform mat4 invpMat;
 			uniform mat4 invvMat;
 
 			uniform vec2 mousePos;
+			uniform vec3 camPos;
 			uniform vec2 winSize;
 
 			const float strideSize = 1.0;
@@ -292,49 +295,44 @@
 
 			void main() {
 				vec3 color = texture(colorTex, vtexCoord).rgb;
-				if(mousePos.x - 0.01 < gl_PointCoord.x && gl_PointCoord.x < mousePos.x + 0.01 &&
-					mousePos.y - 0.01 < gl_PointCoord.y && gl_PointCoord.y < mousePos.y + 0.01)
-					{
-						fFragColor = vec4(1.0, 0.0, 0.0, 1.0);
-					}
-				else
+				//fFragColor = vec4(color, 1.0);
+
+				// ---  mouse --- //
+				/*vec3 mouseNormal = vec3(texture(normalVTex, mousePos));
+				vec3 mouseVPos = texture(posVTex, mousePos).xyz;
+
+				vec3 mreflectDir = normalize(reflect(normalize(mouseVPos), normalize(mouseNormal)));
+				vec3 mouseHitScreenPos = rayMarch(mreflectDir * max(minRayStep, -mouseVPos.z), mouseVPos);
+
+
+				if(mouseHitScreenPos.x -0.01 < gl_PointCoord.x && gl_PointCoord.x < mouseHitScreenPos.x +0.01 &&
+					mouseHitScreenPos.y -0.01 < gl_PointCoord.y && gl_PointCoord.y < mouseHitScreenPos.y +0.01)
 				{
-					// ---  mouse --- //
-					vec3 mouseNormal = texture(normalVTex, mousePos).xyz;
-					vec3 mouseVPos = texture(posVTex, mousePos).xyz;
-
-					vec3 mreflectDir = normalize(reflect(normalize(mouseVPos), normalize(mouseNormal)));
-					vec3 mouseHitScreenPos = rayMarch(mreflectDir * max(minRayStep, -mouseVPos.z), mouseVPos);
-
-
-					if(mouseHitScreenPos.x -0.01 < gl_PointCoord.x && gl_PointCoord.x < mouseHitScreenPos.x +0.01 &&
-						mouseHitScreenPos.y -0.01 < gl_PointCoord.y && gl_PointCoord.y < mouseHitScreenPos.y +0.01)
+					fFragColor = vec4(0.0, 1.0, 1.0, 1.0);
+				}
+				else
+				{*/
+					float doReflect = texture(reflectTex, vtexCoord).x;
+					if(doReflect == 0.0)
 					{
-						fFragColor = vec4(0.0, 1.0, 1.0, 1.0);
+							fFragColor = vec4(color, 1.0);
+					}
+					else if(doReflect == 0.5)
+					{
+						// --- curPos --- //
+						vec3 viewNormal = vec3(texture(normalVTex, vtexCoord)) ;
+						vec3 viewPos = texture(posVTex, vtexCoord).xyz;
+
+						vec3 reflectDir = normalize(reflect(viewPos, viewNormal));
+						vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -(viewPos).z), viewPos);
+						fFragColor = texture(colorTex, hitScreenPos.xy);
 					}
 					else
 					{
-						float doReflect = texture(reflectTex, vtexCoord).x;
-						if(doReflect == 0.0)
-						{
-								fFragColor = vec4(color, 1.0);
-						}
-						else if(doReflect == 0.5)
-						{
-							// --- curPos --- //
-							vec3 viewNormal = vec3(texture(normalVTex, vtexCoord));
-							vec3 viewPos = texture(posVTex, vtexCoord).xyz;
-
-							vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
-							vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
-							fFragColor = texture(colorTex, hitScreenPos.xy);
-						}
-						else
-						{
-							fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
-						}
+						fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
 					}
-				}
+
+				//}
 			}
 
 			vec3 rayMarch(vec3 reflectDir, vec3 viewPos)

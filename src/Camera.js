@@ -17,6 +17,7 @@ export default class Camera {
 
 		this.vMat = glm.mat4.create();
 		this.pMat = glm.mat4.create();
+		this.camTransMat = glm.mat4.create();
 		this.inv_vMat = glm.mat4.create();
 		this.inv_pMat = glm.mat4.create();
 		glm.mat4.invert(this.inv_vMat, this.vMat);
@@ -25,6 +26,7 @@ export default class Camera {
 		new Promise(() =>
 			glm.mat4.lookAt(this.vMat, this.camPos, this.center, [0, 1, 0])
 		).then(() => glm.mat4.invert(this.inv_vMat, this.vMat));
+		glm.mat4.translate(this.camTransMat, this.camTransMat, -this.camPos);
 		this.reshape(winW, winH);
 
 		// Camera Control
@@ -77,9 +79,9 @@ export default class Camera {
 					break;
 			}
 
-			new Promise((resolve, reject) =>
-				resolve(glm.mat4.lookAt(self.vMat, self.camPos, self.center, [0, 1, 0]))
-			).then(() => glm.mat4.invert(self.inv_vMat, self.vMat));
+			glm.mat4.lookAt(self.vMat, self.camPos, self.center, [0, 1, 0]);
+			glm.mat4.invert(self.inv_vMat, self.vMat);
+			glm.mat4.translate(this.camTransMat, glm.mat4.create(), -this.camPos);
 		};
 
 		window.onmousedown = function mouseDown(e) {
@@ -142,6 +144,7 @@ export default class Camera {
 
 			// update viewMatrix
 			glm.mat4.lookAt(self.vMat, self.camPos, self.center, [0, 1, 0]);
+			glm.mat4.invert(self.inv_vMat, self.vMat);
 		};
 	}
 
@@ -149,14 +152,20 @@ export default class Camera {
 		this.camPos = camPos;
 		new Promise(() =>
 			glm.mat4.lookAt(this.vMat, this.camPos, this.center, [0, 1, 0])
-		).then(() => glm.mat4.invert(this.inv_vMat, this.vMat));
+		).then(() => {
+			glm.mat4.translate(this.camTransMat, glm.mat4.create(), -this.camPos);
+			glm.mat4.invert(this.inv_vMat, this.vMat);
+		});
 	}
 
 	setCenter(cen) {
 		this.center = center;
 		new Promise(() =>
 			glm.mat4.lookAt(this.vMat, this.camPos, this.center, [0, 1, 0])
-		).then(() => glm.mat4.invert(this.inv_vMat, this.vMat));
+		).then(() => {
+			glm.mat4.translate(this.camTransMat, glm.mat4.create(), -this.camPos);
+			glm.mat4.invert(this.inv_vMat, this.vMat);
+		});
 	}
 
 	getPVMat() {
