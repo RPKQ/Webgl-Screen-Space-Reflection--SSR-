@@ -32,9 +32,10 @@ export default class ObjModel {
 	}
 
 	setSc_Pos(scale, pos) {
-		let a = glm.mat4.create();
-		glm.mat4.scale(this.modelMat, this.modelMat, scale);
-		glm.mat4.translate(this.modelMat, this.modelMat, pos);
+		new Promise((r, e) => {
+			let a = glm.mat4.create();
+			r(glm.mat4.translate(this.modelMat, a, pos));
+		}).then(() => glm.mat4.scale(this.modelMat, this.modelMat, scale));
 	}
 
 	async draw(useTex) {
