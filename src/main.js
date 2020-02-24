@@ -20,10 +20,8 @@ var global = {
 };
 // -- program -- //
 
-var programObj = null;
 var programWindow = null;
 var programDefer1 = null;
-var programDefer2 = null;
 var programReflect = null;
 
 var camera = null;
@@ -88,7 +86,7 @@ function initWebGL() {
 	gl.clearDepth(1.0);
 	gl.enable(gl.DEPTH_TEST);
 	// gl.depthFunc(gl.LEQUAL);
-	gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+	gl.viewport(0, 0, window.innerWidth, window.innerHeight);
 
 	// fps
 	stats = new Stats();
@@ -111,18 +109,16 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[0, 0, 10],
-		[0, 0, 0],
-		gl.drawingBufferWidth,
-		gl.drawingBufferHeight,
+		[0.5, 20, 18],
+		[0, 15, 0],
+		window.innerWidth,
+		window.innerHeight,
 		window
 	);
 
 	// program
 	programDefer1 = new Program.default(gl, "defer1V", "defer1F");
-	programDefer2 = new Program.default(gl, "defer2V", "defer2F");
 	programWindow = new Program.default(gl, "windowV", "windowF");
-	programObj = new Program.default(gl, "objV", "objF");
 	programReflect = new Program.default(gl, "reflectV", "reflectF");
 
 	// winModel
@@ -145,7 +141,7 @@ async function loadAssets() {
 	// dragon
 	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
 	dragonModel.loadModel();
-	dragonModel.setSc_Pos([1.0, 1.0, 1.0], [0, 0, 0]);
+	dragonModel.setSc_Pos([1.0, 1.0, 1.0], [0, 10, 0]);
 
 	// sponza
 	// sponzaModel = new ObjModel.default(
@@ -160,9 +156,9 @@ async function loadAssets() {
 	// });
 
 	//sphere
-	sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programDefer1);
-	sphereModel.loadModel();
-	sphereModel.setSc_Pos([1, 1, 1], [0, -2, 0]);
+	// sphereModel = new ObjModel.default(gl, "./asset/sphere.obj", programDefer1);
+	// sphereModel.loadModel();
+	// sphereModel.setSc_Pos([1, 1, 1], [0, -2, 0]);
 
 	// //sphere
 	// cubeModel = new ObjModel.default(gl, "./asset/cube.obj", programDefer1);
@@ -172,7 +168,7 @@ async function loadAssets() {
 	// quad
 	quadModel = new ObjModel.default(gl, "./asset/quad.obj", programDefer1);
 	quadModel.loadModel();
-	quadModel.setSc_Pos([15, 15, 15], [0, 0, 0]);
+	quadModel.setSc_Pos([15, 15, 15], [0, 10, 0]);
 }
 
 // -------- END INIT ------- //
@@ -259,12 +255,12 @@ function render(delta, time) {
 	programReflect.setMat4("invpMat", camera.inv_pMat);
 	programReflect.setMat4("invvMat", camera.inv_vMat);
 
-	// let a = glm.vec2.clone([
-	// 	camera.mousePos[0] / global.winSize[0],
-	// 	(global.winSize[1] - camera.mousePos[1]) / global.winSize[1]
-	// ]);
+	let a = glm.vec2.clone([
+		camera.mousePos[0] / global.winSize[0],
+		(global.winSize[1] - camera.mousePos[1]) / global.winSize[1]
+	]);
 	// console.log(a);
-	// programReflect.setVec2("mousePos", a);
+	programReflect.setVec2("mousePos", a);
 	programReflect.setVec3("camPos", camera.camPos);
 
 	winModel.draw();

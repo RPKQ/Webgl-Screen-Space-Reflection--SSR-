@@ -77,11 +77,11 @@
 
 			void main()
 			{
-			    gl_Position = pMat * camTransMat * mMat * vec4(iposition, 1.0);
+			    gl_Position = pMat * vMat * mMat * vec4(iposition, 1.0);
 
 				// output
-				vnormal = normalize(mat3(transpose(inverse(mMat))) * inormal);
-				vnormalV = normalize(mat3(transpose(inverse(vMat * mMat))) * inormal);
+				vnormal = normalize(mat3(mMat) * inormal);
+				vnormalV = normalize(mat3(vMat * mMat) * inormal);
 				vposV = vec3(vMat * mMat * vec4(iposition, 1.0));
 				vtexCoord = itexCoord;
 				vreflect = reflect;
@@ -160,56 +160,41 @@
 			uniform vec3 camPos;
 			uniform vec2 winSize;
 
-			const float strideSize = 1.0;
+			const float strideSize = 0.08;
 			const int max_steps = 30;
 			const float minRayStep = 0.1;
+			const int numBinarySteps = 5;
 
-			vec3 rayMarch(vec3 reflectDir, vec3 viewPos);
+			vec2 rayMarch(vec3 reflectDir, vec3 viewPos);
 			vec2 cam2screen(vec3 camVec);
+			vec2 binarySearch(vec3 startStride, vec3 startPos);
 
 			void main() {
 				vec3 color = texture(colorTex, vtexCoord).rgb;
-				fFragColor = vec4(color, 1.0);
 
-				// ---  mouse --- //
-				/*vec3 mouseNormal = vec3(texture(normalVTex, mousePos));
-				vec3 mouseVPos = texture(posVTex, mousePos).xyz;
-
-				vec3 mreflectDir = normalize(reflect(normalize(mouseVPos), normalize(mouseNormal)));
-				vec3 mouseHitScreenPos = rayMarch(mreflectDir * max(minRayStep, -mouseVPos.z), mouseVPos);
-
-
-				if(mouseHitScreenPos.x -0.01 < gl_PointCoord.x && gl_PointCoord.x < mouseHitScreenPos.x +0.01 &&
-					mouseHitScreenPos.y -0.01 < gl_PointCoord.y && gl_PointCoord.y < mouseHitScreenPos.y +0.01)
+				float doReflect = texture(reflectTex, vtexCoord).x;
+				if(doReflect == 0.0)
 				{
-					fFragColor = vec4(0.0, 1.0, 1.0, 1.0);
+					fFragColor = vec4(color, 1.0);
+				}
+				else if(doReflect == 0.5)
+				{
+					// --- curPos --- //
+					vec3 viewNormal = vec3(texture(normalVTex, vtexCoord)) ;
+					vec3 viewPos = texture(posVTex, vtexCoord).xyz;
+
+					vec3 reflectDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
+					vec2 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -viewPos.z), viewPos);
+					fFragColor = texture(colorTex, hitScreenPos);
 				}
 				else
-				{*/
-					/*float doReflect = texture(reflectTex, vtexCoord).x;
-					if(doReflect == 0.0)
-					{
-							fFragColor = vec4(color, 1.0);
-					}
-					else if(doReflect == 0.5)
-					{
-						// --- curPos --- //
-						vec3 viewNormal = vec3(texture(normalVTex, vtexCoord)) ;
-						vec3 viewPos = texture(posVTex, vtexCoord).xyz;
+				{
+					fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
+				}
 
-						vec3 reflectDir = normalize(reflect(viewPos, viewNormal));
-						vec3 hitScreenPos = rayMarch(reflectDir * max(minRayStep, -(viewPos).z), viewPos);
-						fFragColor = texture(colorTex, hitScreenPos.xy);
-					}
-					else
-					{
-						fFragColor = vec4(0.0, 0.0, 0.0, 1.0);
-					}*/
-
-				//}
 			}
 
-			vec3 rayMarch(vec3 reflectDir, vec3 viewPos)
+			vec2 rayMarch(vec3 reflectDir, vec3 viewPos)
 			{
 				vec3 curPos = viewPos;
 				vec3 stride = strideSize * reflectDir;
@@ -221,23 +206,44 @@
 				{
 					curPos += stride;
 					curScreenPos = cam2screen(curPos);
-					depth = texture(depthTex, curScreenPos).z;
+					depth = texture(posVTex, curScreenPos).z;
 
 					dDepth = curPos.z - depth;
 
-					if((stride.z - dDepth) < 1.2)
+					if(stride.z - dDepth < 1.2)
 					{
 						// if hit
 						if(dDepth <= 0.0)
 						{
-							return vec3(curScreenPos, depth);
+							return binarySearch(stride, curPos);
 						}
 					}
 				}
-				//return vec3(cam2screen(curPos + stride), 1.0);
 
-				return vec3(curScreenPos, depth);
+				return curScreenPos;
 			}
+
+			vec2 binarySearch(vec3 startStride, vec3 startPos)
+			{
+				vec3 curPos = startPos;
+				vec3 stride = startStride;
+				vec2 curScreenPos;
+				float depthErr;
+				for(int i=0; i<numBinarySteps; i++)
+				{
+					curScreenPos = cam2screen(curPos);
+					depthErr = curPos.z - texture(posVTex, curScreenPos).z;
+					stride *= 0.5;
+
+					// we are more forward(-z) than the object
+					if(depthErr <= 0.0)
+						curPos -= stride;
+					else
+						curPos += stride;
+				}
+				return cam2screen(curPos);
+			}
+
 
 			vec2 cam2screen(vec3 camVec)
 			{
