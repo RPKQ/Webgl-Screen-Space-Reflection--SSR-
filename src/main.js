@@ -43,8 +43,9 @@ var gbuffer = null;
 
 var flag = {
 	useTex: false,
-	Fresnel0: 0.04,
-	edgeFade: 3.0
+	useFadeEdge: true,
+	edgeFade: 1.0,
+	discardRange: 1.2
 };
 
 var rrtex = null;
@@ -85,7 +86,7 @@ function initWebGL() {
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clearDepth(1.0);
 	gl.enable(gl.DEPTH_TEST);
-	// gl.depthFunc(gl.LEQUAL);
+	gl.depthFunc(gl.LEQUAL);
 	gl.viewport(0, 0, window.innerWidth, window.innerHeight);
 
 	// fps
@@ -98,12 +99,14 @@ function initWebGL() {
 	gui.domElement.classList.add("navbar");
 	let nmFolder = gui.addFolder("toggles");
 	nmFolder.add(flag, "useTex").onChange(val => (flag.useTex = val));
-	nmFolder
-		.add(flag, "Fresnel0", 0.0, 0.3)
-		.onChange(val => (flag.Fresnel0 = val));
+	nmFolder.add(flag, "useFadeEdge").onChange(val => (flag.useFadeEdge = val));
 	nmFolder
 		.add(flag, "edgeFade", 0.0, 5.0)
 		.onChange(val => (flag.edgeFade = val));
+	nmFolder.open();
+	nmFolder
+		.add(flag, "discardRange", 0.0, 5.0)
+		.onChange(val => (flag.discardRange = val));
 	nmFolder.open();
 
 	// control
@@ -113,8 +116,8 @@ function initVar() {
 	// camera
 	camera = new Camera.default(
 		gl,
-		[0.5, 20, 18],
-		[0, 15, 0],
+		[50, 80, 50],
+		[0, 70, 0],
 		window.innerWidth,
 		window.innerHeight,
 		window
@@ -145,24 +148,25 @@ async function loadAssets() {
 	// dragon
 	dragonModel = new ObjModel.default(gl, "./asset/dragon.obj", programDefer1);
 	dragonModel.loadModel();
-	dragonModel.setSc_Pos([1.0, 1.0, 1.0], [0, 10, 0]);
+	dragonModel.setSc_Pos([10.0, 10.0, 10.0], [250, 0, -100]);
 
 	// sponza
-	// sponzaModel = new ObjModel.default(
-	// 	gl,
-	// 	"./asset/crytek/sponza.obj",
-	// 	programDefer1
-	// );
-	// new Promise((resolve, reject) => {
-	// 	resolve(sponzaModel.loadModel());
-	// }).then(() => {
-	// 	sponzaModel.loadMaterial();
-	// });
+	sponzaModel = new ObjModel.default(
+		gl,
+		"./asset/crytek/sponza.obj",
+		programDefer1
+	);
+	new Promise((resolve, reject) => {
+		resolve(sponzaModel.loadModel());
+	}).then(() => {
+		sponzaModel.loadMaterial();
+	});
+	sponzaModel.setSc_Pos([0.8, 0.8, 0.8], [0, 0, 0]);
 
 	// quad
 	quadModel = new ObjModel.default(gl, "./asset/quad.obj", programDefer1);
 	quadModel.loadModel();
-	quadModel.setSc_Pos([100, 100, 100], [0, 10, 0]);
+	quadModel.setSc_Pos([1000, 1000, 1000], [0, 0, 0]);
 }
 
 // -------- END INIT ------- //
@@ -191,6 +195,10 @@ function render(delta, time) {
 	programDefer1.setMat4("vMat", camera.vMat);
 	programDefer1.setMat4("camTransMat", camera.camTransMat);
 
+	// winModel
+	programDefer1.setFloat("reflect", 0.0);
+	winModel.draw(flag.useTex);
+
 	// quad
 	programDefer1.setFloat("reflect", 0.7);
 	programDefer1.setMat4("mMat", quadModel.modelMat);
@@ -202,9 +210,9 @@ function render(delta, time) {
 	dragonModel.draw(flag.useTex);
 
 	// sponza
-	// programDefer1.setFloat("reflect", 0.0);
-	// programDefer1.setMat4("mMat", sponzaModel.modelMat);
-	// sponzaModel.draw(flag.useTex);
+	programDefer1.setFloat("reflect", 0.0);
+	programDefer1.setMat4("mMat", sponzaModel.modelMat);
+	sponzaModel.draw(flag.useTex);
 
 	// draw to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -224,8 +232,8 @@ function render(delta, time) {
 	programReflect.setMat4("invpMat", camera.inv_pMat);
 	programReflect.setMat4("invvMat", camera.inv_vMat);
 
-	programReflect.setFloat("Fres0", flag.Fresnel0);
 	programReflect.setFloat("reflectionSpecularFalloffExponent", flag.edgeFade);
+	programReflect.setInt("useFadeEdge", flag.useFadeEdge);
 
 	// let a = glm.vec2.clone([
 	// 	camera.mousePos[0] / global.winSize[0],

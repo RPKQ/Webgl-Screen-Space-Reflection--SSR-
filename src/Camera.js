@@ -176,6 +176,6 @@ export default class Camera {
 	}
 
 	reshape(winW, winH) {
-		glm.mat4.perspective(this.pMat, Math.PI * 0.5, winW / winH, 0.1, 1000.0);
+		glm.mat4.perspective(this.pMat, Math.PI * 0.5, winW / winH, 0.1, 1200.0);
 	}
 }
